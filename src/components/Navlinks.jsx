@@ -21,7 +21,7 @@ export const NavLinks = ({ mobile, closeSidebar }) => (
 export const AuthButtons = () => (
   <div className="flex space-x-4">
     <Link
-      to="/signin"
+      to="/login"
       className="px-6 py-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/20 hover:border-white/30"
     >
       Sign In

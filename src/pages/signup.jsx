@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaGoogle, FaFacebookF, FaPizzaSlice } from 'react-icons/fa';
 
-const Login = () => {
+const Signup = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-yellow-50">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-yellow-200">
@@ -9,7 +9,7 @@ const Login = () => {
           <FaPizzaSlice className="text-4xl text-red-500" />
         </div>
         <h2 className="text-2xl font-bold text-center text-red-600 mb-6">
-          Welcome Back to PizzaWorld 🍕
+          Join PizzaWorld 🍕
         </h2>
 
         <form className="space-y-5">
@@ -41,13 +41,13 @@ const Login = () => {
             type="submit"
             className="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 transition"
           >
-            Log In
+            Sign Up & Get a Slice!
           </button>
         </form>
 
         <div className="flex items-center my-6">
           <div className="flex-grow h-px bg-gray-300" />
-          <span className="px-2 text-gray-500 text-sm">or log in with</span>
+          <span className="px-2 text-gray-500 text-sm">or sign up with</span>
           <div className="flex-grow h-px bg-gray-300" />
         </div>
 
@@ -61,12 +61,12 @@ const Login = () => {
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          New to PizzaWorld?{' '}
-          <a href="#" className="text-red-500 hover:underline">Create an account</a>
+          Already part of the pizza party?{' '}
+          <a href="#" className="text-red-500 hover:underline">Sign in</a>
         </p>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Signup;
