@@ -1,22 +1,34 @@
 // Navbar.jsx
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { FaBars, FaTimes } from "react-icons/fa";
-import Sidebar from "./Sidebar";
-import { AuthButtons, NavLinks } from "./Navlinks";
+import { Link, useNavigate } from "react-router-dom";
+import { FaBars, FaTimes, FaShoppingCart, FaUser, FaSignOutAlt } from "react-icons/fa";
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 
 const Navbar = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-  const closeSidebar = () => setSidebarOpen(false);
+  const { user, isAuthenticated, logout } = useAuth();
+  const { getCartCount } = useCart();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    setIsOpen(false);
+  };
+
+  const toggleMenu = () => {
+    setIsOpen(!isOpen);
+  };
 
   return (
     <>
@@ -26,24 +38,173 @@ const Navbar = () => {
             PizzaHouse
           </Link>
 
+          {/* Desktop Menu */}
           <div className="hidden lg:flex items-center space-x-8">
-            <NavLinks mobile={false} closeSidebar={closeSidebar} />
-            <AuthButtons />
+            {/* Main Navigation */}
+            <Link to="/" className="text-white hover:text-red-100 transition-colors">
+              Home
+            </Link>
+            <Link to="/menu" className="text-white hover:text-red-100 transition-colors">
+              Menu
+            </Link>
+            <Link to="/bestonlineservice" className="text-white hover:text-red-100 transition-colors">
+              Best Online Service
+            </Link>
+            <Link to="/order" className="text-white hover:text-red-100 transition-colors">
+              Order
+            </Link>
+
+            {/* Authentication Menu */}
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/cart"
+                  className="text-white hover:text-red-100 transition-colors flex items-center relative"
+                >
+                  <FaShoppingCart className="mr-2" />
+                  Cart
+                  {getCartCount() > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                      {getCartCount()}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  to="/orders"
+                  className="text-white hover:text-red-100 transition-colors flex items-center"
+                >
+                  <FaUser className="mr-2" />
+                  Orders
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-white hover:text-red-100 transition-colors flex items-center"
+                >
+                  <FaSignOutAlt className="mr-2" />
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-white hover:text-red-100 transition-colors flex items-center"
+                >
+                  <FaUser className="mr-2" />
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="bg-white text-red-600 px-4 py-2 rounded-md hover:bg-red-50 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
+          {/* Mobile menu button */}
           <button
-            onClick={toggleSidebar}
+            onClick={toggleMenu}
             className="lg:hidden text-2xl text-white p-2 hover:text-red-100 transition-colors"
           >
-            {sidebarOpen ? <FaTimes /> : <FaBars />}
+            {isOpen ? <FaTimes /> : <FaBars />}
           </button>
         </div>
       </nav>
 
-      <Sidebar isOpen={sidebarOpen} closeSidebar={closeSidebar} />
+      {/* Mobile Menu */}
+      {isOpen && (
+        <div className="lg:hidden fixed inset-0 z-30 bg-red-800/95 backdrop-blur-xl">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col space-y-4">
+              {/* Main Navigation */}
+              <Link
+                to="/"
+                className="text-white hover:text-red-100 transition-colors text-xl py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Home
+              </Link>
+              <Link
+                to="/menu"
+                className="text-white hover:text-red-100 transition-colors text-xl py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Menu
+              </Link>
+              <Link
+                to="/bestonlineservice"
+                className="text-white hover:text-red-100 transition-colors text-xl py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Best Online Service
+              </Link>
+              <Link
+                to="/order"
+                className="text-white hover:text-red-100 transition-colors text-xl py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Order
+              </Link>
+
+              {/* Authentication Menu */}
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    to="/cart"
+                    className="text-white hover:text-red-100 transition-colors flex items-center text-xl py-2 relative"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <FaShoppingCart className="mr-2" />
+                    Cart
+                    {getCartCount() > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                        {getCartCount()}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    to="/orders"
+                    className="text-white hover:text-red-100 transition-colors flex items-center text-xl py-2"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <FaUser className="mr-2" />
+                    Orders
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="text-white hover:text-red-100 transition-colors flex items-center text-xl py-2"
+                  >
+                    <FaSignOutAlt className="mr-2" />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="text-white hover:text-red-100 transition-colors flex items-center text-xl py-2"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <FaUser className="mr-2" />
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="bg-white text-red-600 px-4 py-2 rounded-md hover:bg-red-50 transition-colors text-xl"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
-
 
 export default Navbar;
