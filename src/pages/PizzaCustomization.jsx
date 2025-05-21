@@ -9,7 +9,7 @@ import CrustSelector from '../components/pizza-customization/CrustSelector';
 import ToppingSelector from '../components/pizza-customization/ToppingSelector';
 import ExtraItemsSelector from '../components/pizza-customization/ExtraItemsSelector';
 import PriceSummary from '../components/pizza-customization/PriceSummary';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://pizzahouseb.onrender.com/api';
 
 const Container = styled.div`
   max-width: 1200px;
