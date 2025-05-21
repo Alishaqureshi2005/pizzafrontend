@@ -2,8 +2,11 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = () => {
+const AdminRoute = () => {
   const { user, loading } = useAuth();
+
+  console.log('AdminRoute - User:', user);
+  console.log('AdminRoute - User Role:', user?.role);
 
   if (loading) {
     return (
@@ -13,11 +16,12 @@ const ProtectedRoute = () => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" />;
+  if (!user || user.role !== 'admin') {
+    console.log('AdminRoute - Access Denied:', { userExists: !!user, role: user?.role });
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
 };
 
-export default ProtectedRoute; 
+export default AdminRoute; 

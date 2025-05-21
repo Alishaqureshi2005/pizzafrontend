@@ -1,15 +1,15 @@
 // Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaBars, FaTimes, FaShoppingCart, FaUser, FaSignOutAlt } from "react-icons/fa";
+import { FaBars, FaTimes, FaShoppingCart, FaUser, FaSignOutAlt, FaHistory } from "react-icons/fa";
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
-  const { getCartCount } = useCart();
+  const { isAuthenticated, logout } = useAuth();
+  const { cart } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
     setIsOpen(false);
   };
 
@@ -63,17 +63,17 @@ const Navbar = () => {
                 >
                   <FaShoppingCart className="mr-2" />
                   Cart
-                  {getCartCount() > 0 && (
+                  {cart && cart.items && cart.items.length > 0 && (
                     <span className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                      {getCartCount()}
+                      {cart.items.length}
                     </span>
                   )}
                 </Link>
                 <Link
-                  to="/orders"
+                  to="/order-history"
                   className="text-white hover:text-red-100 transition-colors flex items-center"
                 >
-                  <FaUser className="mr-2" />
+                  <FaHistory className="mr-2" />
                   Orders
                 </Link>
                 <button
@@ -158,18 +158,18 @@ const Navbar = () => {
                   >
                     <FaShoppingCart className="mr-2" />
                     Cart
-                    {getCartCount() > 0 && (
+                    {cart && cart.items && cart.items.length > 0 && (
                       <span className="absolute -top-2 -right-2 bg-white text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                        {getCartCount()}
+                        {cart.items.length}
                       </span>
                     )}
                   </Link>
                   <Link
-                    to="/orders"
+                    to="/order-history"
                     className="text-white hover:text-red-100 transition-colors flex items-center text-xl py-2"
                     onClick={() => setIsOpen(false)}
                   >
-                    <FaUser className="mr-2" />
+                    <FaHistory className="mr-2" />
                     Orders
                   </Link>
                   <button

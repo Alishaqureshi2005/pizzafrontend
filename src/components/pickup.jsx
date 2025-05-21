@@ -1,7 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AppContext } from '../context/DeliveryContext';
 import { FaStore } from 'react-icons/fa';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { deliveryService } from '../services/deliveryService';
+import { toast } from 'react-toastify';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -14,33 +16,57 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const pickupLocations = [
-  {
-    name: 'Downtown Store',
-    coordinates: [51.505, -0.09],
-  },
-  {
-    name: 'Uptown Outlet',
-    coordinates: [51.515, -0.1],
-  },
-  {
-    name: 'Mall Branch',
-    coordinates: [51.51, -0.08],
-  },
-];
-
 const Pickup = () => {
-  const { isPickupOpen, closePickup } = useContext(AppContext);
-  const [selectedLocation, setSelectedLocation] = useState(pickupLocations[0]);
+  const { isPickupOpen, closePickup, setSelectedPickupLocation } = useContext(AppContext);
+  const [pickupLocations, setPickupLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    const selected = pickupLocations.find(loc => loc.name === e.target.value);
-    setSelectedLocation(selected);
+  useEffect(() => {
+    fetchPickupLocations();
+  }, []);
+
+  const fetchPickupLocations = async () => {
+    try {
+      const zones = await deliveryService.getDeliveryZones();
+      // Filter zones that are available for pickup
+      const pickupZones = zones.filter(zone => zone.isAvailable);
+      setPickupLocations(pickupZones);
+      if (pickupZones.length > 0) {
+        setSelectedLocation(pickupZones[0]);
+      }
+    } catch (error) {
+      toast.error('Failed to fetch pickup locations');
+    }
+  };
+
+  const handleLocationChange = async (e) => {
+    const location = pickupLocations.find(loc => loc._id === e.target.value);
+    setSelectedLocation(location);
+    if (location) {
+      try {
+        const { availableSlots } = await deliveryService.getTimeSlots(location._id);
+        setTimeSlots(availableSlots);
+      } catch (error) {
+        toast.error('Failed to fetch time slots');
+      }
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert(`Pickup selected: ${selectedLocation.name}`);
+    if (!selectedLocation || !selectedTimeSlot) {
+      toast.error('Please select a location and time slot');
+      return;
+    }
+
+    setSelectedPickupLocation({
+      location: selectedLocation,
+      timeSlot: selectedTimeSlot
+    });
+    toast.success('Pickup location confirmed!');
     closePickup();
   };
 
@@ -53,29 +79,49 @@ const Pickup = () => {
         <form onSubmit={handleSubmit}>
           <select
             className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            onChange={handleChange}
-            value={selectedLocation.name}
+            onChange={handleLocationChange}
+            value={selectedLocation?._id || ''}
           >
+            <option value="">Select a location</option>
             {pickupLocations.map((loc) => (
-              <option key={loc.name} value={loc.name}>
+              <option key={loc._id} value={loc._id}>
                 {loc.name}
               </option>
             ))}
           </select>
-          <div className="h-64 mb-4">
-            <MapContainer
-              center={selectedLocation.coordinates}
-              zoom={13}
-              scrollWheelZoom={false}
-              className="h-full w-full rounded"
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <Marker position={selectedLocation.coordinates} />
-            </MapContainer>
-          </div>
+
+          {selectedLocation && (
+            <>
+              <div className="h-64 mb-4">
+                <MapContainer
+                  center={selectedLocation.coordinates.coordinates}
+                  zoom={13}
+                  scrollWheelZoom={false}
+                  className="h-full w-full rounded"
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={selectedLocation.coordinates.coordinates} />
+                </MapContainer>
+              </div>
+
+              <select
+                className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+                value={selectedTimeSlot}
+                onChange={(e) => setSelectedTimeSlot(e.target.value)}
+              >
+                <option value="">Select Time Slot</option>
+                {timeSlots.map((slot, index) => (
+                  <option key={index} value={`${slot.start}-${slot.end}`}>
+                    {slot.start} - {slot.end}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
           <div className="flex justify-end space-x-2">
             <button
               type="button"
@@ -86,10 +132,11 @@ const Pickup = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+              disabled={loading}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50"
             >
               <FaStore className="inline mr-2" />
-              Confirm
+              {loading ? 'Processing...' : 'Confirm'}
             </button>
           </div>
         </form>

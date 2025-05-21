@@ -1,9 +1,12 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authService } from '../services/authService';
+import { toast } from 'react-toastify';
 
 const AuthContext = createContext();
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -11,95 +14,119 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const { data } = await authAPI.getMe();
-        setUser(data.user);
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-      localStorage.removeItem('token');
-      setError(error.response?.data?.message || 'Session expired. Please login again.');
-    } finally {
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadUser();
+    } else {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const login = async (email, password) => {
+  const loadUser = async () => {
     try {
-      setError(null);
-      if (!email || !password) {
-        throw new Error('Email and password are required');
+      const response = await authService.getCurrentUser();
+      if (response.success) {
+        setUser(response.user);
+      } else {
+        localStorage.removeItem('token');
+        setUser(null);
       }
-      const  data = await authAPI.login({ email, password });
-      localStorage.setItem('token', data.token);
-      setUser(data.user);
-      return data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      console.error('Error loading user:', error);
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (userData) => {
     try {
       setError(null);
-      // Validate required fields
-      const requiredFields = ['name', 'email', 'password', 'phone'];
-      const missingFields = requiredFields.filter(field => !userData[field]);
-      
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      const response = await authService.register(userData);
+      if (response.success) {
+        localStorage.setItem('token', response.token);
+        setUser(response.user);
+        toast.success('Registration successful!');
+        return true;
       }
-
-      // Validate password length
-      if (userData.password.length < 6) {
-        throw new Error('Password must be at least 6 characters long');
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(userData.email)) {
-        throw new Error('Invalid email format');
-      }
-
-      const data  = await authAPI.register(userData);
-      localStorage.setItem('token', data.token);
-      setUser(data.user);
-      return data;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      setError(error.message);
+      toast.error(error.message || 'Registration failed');
+      return false;
+    }
+  };
+
+  const login = async (credentials) => {
+    try {
+      setError(null);
+      const response = await authService.login(credentials);
+      if (response.success) {
+        localStorage.setItem('token', response.token);
+        setUser(response.user);
+        toast.success('Login successful!');
+        return true;
+      }
+    } catch (error) {
+      setError(error.message);
+      toast.error(error.message || 'Login failed');
+      return false;
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    setError(null);
+    toast.success('Logged out successfully');
   };
 
-  const clearError = () => {
-    setError(null);
+  const updateUserDetails = async (userData) => {
+    try {
+      setError(null);
+      const response = await authService.updateUserDetails(userData);
+      if (response.success) {
+        setUser(response.user);
+        toast.success('Profile updated successfully!');
+        return true;
+      }
+    } catch (error) {
+      setError(error.message);
+      toast.error(error.message || 'Failed to update profile');
+      return false;
+    }
+  };
+
+  const updatePassword = async (passwordData) => {
+    try {
+      setError(null);
+      const response = await authService.updatePassword(passwordData);
+      if (response.success) {
+        localStorage.setItem('token', response.token);
+        toast.success('Password updated successfully!');
+        return true;
+      }
+    } catch (error) {
+      setError(error.message);
+      toast.error(error.message || 'Failed to update password');
+      return false;
+    }
   };
 
   const value = {
     user,
     loading,
     error,
-    login,
-    register,
-    logout,
-    clearError,
     isAuthenticated: !!user,
+    register,
+    login,
+    logout,
+    updateUserDetails,
+    updatePassword
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 }; 
