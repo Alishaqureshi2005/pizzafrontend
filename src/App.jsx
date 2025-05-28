@@ -26,7 +26,7 @@ import AdminNavbar from './components/AdminNavbar';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Header from './components/Header';
-import Pickup from './components/Pickup';
+import Pickup from './components/pickup';
 import Delivery from './components/Delivery';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
