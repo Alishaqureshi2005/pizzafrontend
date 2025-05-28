@@ -37,9 +37,9 @@ const Signup = () => {
       await register(formData);
       navigate('/');
     } catch (err) {
-      if (err.response?.data?.errors) {
+      if (err.response?.errors) {
         // Handle validation errors from the backend
-        const errorMessages = err.response.data.errors.map(error => error.message).join(', ');
+        const errorMessages = err.response.errors.map(error => error.message).join(', ');
         setError(errorMessages);
       } else {
         setError(err.message || 'Registration failed');

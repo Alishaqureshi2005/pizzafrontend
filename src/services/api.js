@@ -5,88 +5,55 @@ const API_URL = 'http://localhost:5000/api';
 const api = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add token to requests if it exists
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    'Content-Type': 'application/json'
   }
-  return config;
 });
 
-// Add response interceptor for better error handling
-api.interceptors.response.use(
-  (response) => response,
+// Add a request interceptor to add the auth token to every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
   (error) => {
-    console.error('API Error:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      config: {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data
-      }
-    });
     return Promise.reject(error);
   }
 );
 
-export const authAPI = {
-  register: async (userData) => {
-    try {
-      console.log('Registering user with data:', userData);
-      const response = await api.post('/auth/register', userData);
-      return response.data;
-    } catch (error) {
-      console.error('Registration error:', error.response?.data || error.message);
-      throw error;
+// Add a response interceptor to handle common errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Handle specific error cases
+      switch (error.response.status) {
+        case 401:
+          // Unauthorized - clear token and redirect to login
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+          break;
+        case 403:
+          // Forbidden - user doesn't have required permissions
+          console.error('Access forbidden:', error.response.data);
+          break;
+        case 404:
+          // Not found
+          console.error('Resource not found:', error.response.data);
+          break;
+        default:
+          console.error('API Error:', error.response.data);
+      }
+    } else if (error.request) {
+      // Network error
+      console.error('Network Error:', error.request);
+    } else {
+      console.error('Error:', error.message);
     }
-  },
-
-  login: async (credentials) => {
-    try {
-      console.log('Logging in with credentials:', credentials);
-      const response = await api.post('/auth/login', credentials);
-      return response.data;
-    } catch (error) {
-      console.error('Login error:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-
-  getMe: async () => {
-    try {
-      const response = await api.get('/auth/me');
-      return response.data;
-    } catch (error) {
-      console.error('Get user error:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-
-  updateDetails: async (userData) => {
-    try {
-      const response = await api.put('/auth/updatedetails', userData);
-      return response.data;
-    } catch (error) {
-      console.error('Update details error:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-
-  updatePassword: async (passwordData) => {
-    try {
-      const response = await api.put('/auth/updatepassword', passwordData);
-      return response.data;
-    } catch (error) {
-      console.error('Update password error:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-};
+    return Promise.reject(error);
+  }
+);
 
 export default api; 
