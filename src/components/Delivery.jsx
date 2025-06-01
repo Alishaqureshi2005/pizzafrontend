@@ -78,20 +78,12 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [initialMapCenter, setInitialMapCenter] = useState([24.7337, 69.7967]); // Default to Mithi coordinates
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
   useEffect(() => {
     fetchDeliveryZones();
     // Try to get user's location on component mount
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setInitialMapCenter([position.coords.latitude, position.coords.longitude]);
-        },
-        () => {
-          // Silently fail and use default center
-        }
-      );
-    }
+    requestLocation();
   }, []);
 
   // Add effect to handle initial address
@@ -115,6 +107,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
             const newPosition = [position.coords.latitude, position.coords.longitude];
             setPosition(newPosition);
             setLocationPermissionDenied(false);
+            setIsUpdatingLocation(false);
             
             // Try to get address from coordinates using reverse geocoding
             const response = await fetch(
@@ -156,6 +149,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
           console.error('Error getting location:', error);
           setLocationPermissionDenied(true);
           setLoading(false);
+          setIsUpdatingLocation(false);
           
           switch (error.code) {
             case error.PERMISSION_DENIED:
@@ -173,7 +167,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000, // Increased timeout to 10 seconds
+          timeout: 10000,
           maximumAge: 0
         }
       );
@@ -183,6 +177,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   };
 
   const handleLocationButtonClick = () => {
+    setIsUpdatingLocation(true);
     setShowPermissionDialog(true);
   };
 
@@ -194,6 +189,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const handleDenyLocation = () => {
     setShowPermissionDialog(false);
     setLocationPermissionDenied(true);
+    setIsUpdatingLocation(false);
     toast.info('You can still enter your address manually or try again later.');
   };
 
@@ -454,15 +450,22 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
                   type="button"
                   onClick={handleLocationButtonClick}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-blue-600"
-                  title="Use my location"
+                  title={isUpdatingLocation ? "Updating location..." : "Use my current location"}
+                  disabled={isUpdatingLocation}
                 >
-                  <FaLocationArrow />
+                  <FaLocationArrow className={isUpdatingLocation ? "animate-spin" : ""} />
                 </button>
               </div>
               
               {locationPermissionDenied && (
                 <div className="text-yellow-600 text-sm mb-4">
                   Location access denied. Please enter your address manually or click the location button to try again.
+                </div>
+              )}
+              
+              {isUpdatingLocation && (
+                <div className="text-blue-600 text-sm mb-4">
+                  Updating your location...
                 </div>
               )}
               

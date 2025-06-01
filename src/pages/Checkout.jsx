@@ -13,6 +13,7 @@ import Delivery from '../components/Delivery';
 import { deliveryService } from '../services/deliveryService';
 import { checkDeliveryAvailability } from '../store/slices/cartSlice';
 import Pickup from '../components/pickup';
+import { FaLocationArrow } from 'react-icons/fa';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -228,6 +229,7 @@ const Checkout = () => {
   const [orderType, setOrderType] = useState('Delivery');
   const [deliveryDetails, setDeliveryDetails] = useState(null);
   const [pickupDetails, setPickupDetails] = useState(null);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
   // Dynamic validation schema
   const validationSchema = React.useMemo(() => Yup.object().shape({
@@ -298,6 +300,7 @@ const Checkout = () => {
 
   const handleAddressChange = async (address, setFieldValue, values) => {
     try {
+      setIsUpdatingLocation(true);
       // Show loading state while checking delivery availability
       setIsProcessing(true);
       
@@ -416,6 +419,7 @@ const Checkout = () => {
       setIsDeliveryZoneValid(false);
     } finally {
       setIsProcessing(false);
+      setIsUpdatingLocation(false);
     }
   };
 
@@ -573,19 +577,26 @@ const Checkout = () => {
                   <>
                     <FormGroup>
                       <Label>Address</Label>
-                      <Input 
-                        type="text" 
-                        name="address"
-                        onBlur={(e) => handleAddressChange(e.target.value, setFieldValue, values)}
-                        onChange={(e) => {
-                          setFieldValue('address', e.target.value);
-                          setIsDeliveryZoneValid(false);
-                          setTimeSlots([]);
-                          setSelectedTimeSlot('');
-                          // Reset delivery details when address changes
-                          setDeliveryDetails(null);
-                        }}
-                      />
+                      <div className="relative">
+                        <Input 
+                          type="text" 
+                          name="address"
+                          onBlur={(e) => handleAddressChange(e.target.value, setFieldValue, values)}
+                          onChange={(e) => {
+                            setFieldValue('address', e.target.value);
+                            setIsDeliveryZoneValid(false);
+                            setTimeSlots([]);
+                            setSelectedTimeSlot('');
+                            // Reset delivery details when address changes
+                            setDeliveryDetails(null);
+                          }}
+                        />
+                        {isUpdatingLocation && (
+                          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600">
+                            <FaLocationArrow className="animate-spin" />
+                          </div>
+                        )}
+                      </div>
                       <ErrorMessage name="address" component={ErrorText} />
                     </FormGroup>
                     <FormGroup>
