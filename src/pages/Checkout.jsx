@@ -523,6 +523,8 @@ const Checkout = () => {
                           setIsDeliveryZoneValid(false);
                           setTimeSlots([]);
                           setSelectedTimeSlot('');
+                          // Reset delivery details when address changes
+                          setDeliveryDetails(null);
                         }}
                       />
                       <ErrorMessage name="address" component={ErrorText} />
@@ -568,7 +570,15 @@ const Checkout = () => {
                   <ErrorMessage name="deliveryInstructions" component={ErrorText} />
                 </FormGroup>
                 {orderType === 'Delivery' && (
-                  <Delivery onConfirm={setDeliveryDetails} />
+                  <Delivery 
+                    onConfirm={(details) => {
+                      console.log('Delivery details confirmed:', details);
+                      setDeliveryDetails(details);
+                    }}
+                    initialAddress={values.address}
+                    initialCity={values.city}
+                    initialZipCode={values.zipCode}
+                  />
                 )}
                 {orderType === 'Pickup' && (
                   <Pickup onConfirm={setPickupDetails} />
@@ -585,6 +595,9 @@ const Checkout = () => {
                         <li>Coordinates: {deliveryDetails?.coordinates ? '✅' : '❌'}</li>
                         <li>Valid Latitude: {typeof deliveryDetails?.coordinates?.latitude === 'number' ? '✅' : '❌'}</li>
                         <li>Valid Longitude: {typeof deliveryDetails?.coordinates?.longitude === 'number' ? '✅' : '❌'}</li>
+                        <li>Delivery Zone Valid: {isDeliveryZoneValid ? '✅' : '❌'}</li>
+                        <li>Time Slots Available: {timeSlots.length > 0 ? '✅' : '❌'}</li>
+                        <li>Time Slot Selected: {selectedTimeSlot ? '✅' : '❌'}</li>
                       </>
                     )}
                     {orderType === 'Pickup' && (
@@ -597,7 +610,14 @@ const Checkout = () => {
                   disabled={
                     isSubmitting || 
                     isProcessing || 
-                    (orderType === 'Delivery' && (!deliveryDetails || !deliveryDetails.coordinates || typeof deliveryDetails.coordinates.latitude !== 'number' || typeof deliveryDetails.coordinates.longitude !== 'number')) ||
+                    (orderType === 'Delivery' && (
+                      !deliveryDetails || 
+                      !deliveryDetails.coordinates || 
+                      typeof deliveryDetails.coordinates.latitude !== 'number' || 
+                      typeof deliveryDetails.coordinates.longitude !== 'number' ||
+                      !isDeliveryZoneValid ||
+                      !selectedTimeSlot
+                    )) ||
                     !isValid
                   }
                 >

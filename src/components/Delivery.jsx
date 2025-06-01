@@ -303,94 +303,46 @@ const Delivery = ({ onConfirm }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    
+    if (!position || !location) {
+      toast.error('Please select a valid delivery location');
+      return;
+    }
+
     try {
-      // Make sure we have either position or location
-      if (!position && !location) {
-        toast.error('Please select a location or enter an address');
-        setLoading(false);
-        return;
-      }
+      setLoading(true);
+      setError(null);
 
-      let coordinates = null;
-      
-      if (position) {
-        // Handle both array and object formats of position
-        if (Array.isArray(position)) {
-          coordinates = {
-            latitude: Number(position[0]),
-            longitude: Number(position[1])
-          };
-        } else {
-          coordinates = {
-            latitude: Number(position.lat),
-            longitude: Number(position.lng)
-          };
-        }
-      } else if (location) {
-        // If we have a text address, geocode it
-        coordinates = await geocodeAddress(location);
-        if (!coordinates) {
-          toast.error('Could not find coordinates for the entered address');
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Validate coordinates
-      if (!coordinates || 
-          coordinates.latitude === undefined || 
-          coordinates.longitude === undefined ||
-          isNaN(coordinates.latitude) || 
-          isNaN(coordinates.longitude)) {
-        toast.error('Invalid location coordinates');
-        setLoading(false);
-        return;
-      }
-
-      // Ensure coordinates are numbers and properly formatted
-      const validCoordinates = {
-        latitude: Number(coordinates.latitude),
-        longitude: Number(coordinates.longitude)
-      };
-
-      // Additional validation for coordinate ranges
-      if (validCoordinates.latitude < -90 || validCoordinates.latitude > 90 ||
-          validCoordinates.longitude < -180 || validCoordinates.longitude > 180) {
-        toast.error('Invalid coordinate ranges');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Checking availability with coordinates:', validCoordinates);
-
-      const response = await deliveryService.checkAvailability({
-        latitude: validCoordinates.latitude,
-        longitude: validCoordinates.longitude,
+      // Check delivery availability
+      const availabilityResponse = await deliveryService.checkAvailability({
+        latitude: position[0],
+        longitude: position[1],
         orderAmount: 0
       });
 
-      if (response.success && response.data?.zone) {
-        const details = {
-          coordinates: validCoordinates,
-          address: location || 'Selected Location',
-          zone: response.data.zone,
-          timeSlot: selectedTimeSlot
-        };
-        setDeliveryAddress(details);
-        updateDeliveryFee(response.data.zone.baseDeliveryFee || 0);
-        if (onConfirm) onConfirm(details);
-        toast.success('Delivery location confirmed!');
-        closeDelivery();
-      } else {
-        toast.error(response.message || 'Delivery is not available at this location');
+      if (!availabilityResponse.success) {
+        toast.error('Delivery is not available at this location');
+        return;
       }
+
+      // Prepare delivery details
+      const deliveryDetails = {
+        address: location,
+        coordinates: {
+          latitude: position[0],
+          longitude: position[1]
+        },
+        zone: availabilityResponse.data.zone,
+        timeSlot: selectedTimeSlot
+      };
+
+      // Call onConfirm with the delivery details
+      onConfirm(deliveryDetails);
+      
+      toast.success('Delivery location confirmed!');
     } catch (error) {
-      console.error('Error checking delivery availability:', error);
-      toast.error(error.message || 'Failed to check delivery availability');
-      setError(error.message || 'Failed to check delivery availability');
+      console.error('Error confirming delivery location:', error);
+      setError('Failed to confirm delivery location. Please try again.');
+      toast.error('Failed to confirm delivery location');
     } finally {
       setLoading(false);
     }
