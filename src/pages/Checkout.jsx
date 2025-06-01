@@ -258,47 +258,65 @@ const Checkout = () => {
         longitude: coordinates.longitude
       })).unwrap();
 
+      let deliveryFee = 0;
+      let isOutOfZone = false;
+
       if (!result.success) {
-        toast.error(result.message || 'Delivery is not available at this location');
-        setIsDeliveryZoneValid(false);
-        setTimeSlots([]);
-        setSelectedTimeSlot('');
-        return;
-      }
-
-      setIsDeliveryZoneValid(true);
-      dispatch(setDeliveryZoneValid(true));
-      
-      if (result.data.zone) {
-        setDeliveryZone(result.data.zone);
-        dispatch(setDeliveryFee(result.data.deliveryFee));
-
-        // Update estimated delivery time
-        if (result.data.estimatedTime) {
-          toast.info(`Estimated delivery time: ${result.data.estimatedTime} minutes`);
-        }
-
-        // Check if there's a minimum order requirement
-        if (cartTotal < result.data.zone.minimumOrderAmount) {
-          toast.error(`Minimum order amount for this area is €${result.data.zone.minimumOrderAmount}`);
+        // If delivery is not available in any zone, check for nearest zone
+        const nearestZone = await orderService.getNearestDeliveryZone(coordinates);
+        if (nearestZone) {
+          isOutOfZone = true;
+          deliveryFee = nearestZone.deliveryFee * 2; // Double the delivery fee for out-of-zone
+          setDeliveryZone(nearestZone);
+          dispatch(setDeliveryFee(deliveryFee));
+          setIsDeliveryZoneValid(true);
+          dispatch(setDeliveryZoneValid(true));
+          
+          // Show warning about out-of-zone delivery
+          toast.warning('Delivery address is outside our regular delivery zones. Additional delivery charges may apply.');
+        } else {
+          toast.error('Delivery is not available at this location');
           setIsDeliveryZoneValid(false);
+          setTimeSlots([]);
+          setSelectedTimeSlot('');
           return;
         }
+      } else {
+        setIsDeliveryZoneValid(true);
+        dispatch(setDeliveryZoneValid(true));
+        
+        if (result.data.zone) {
+          setDeliveryZone(result.data.zone);
+          deliveryFee = result.data.deliveryFee;
+          dispatch(setDeliveryFee(deliveryFee));
 
-        // Get available time slots for the zone
-        try {
-          const timeSlotResponse = await orderService.getDeliveryTimeSlots(result.data.zone._id);
-          if (timeSlotResponse.success && Array.isArray(timeSlotResponse.data)) {
-            setTimeSlots(timeSlotResponse.data);
-            if (timeSlotResponse.data.length > 0) {
-              setSelectedTimeSlot(timeSlotResponse.data[0].id);
-              dispatch(setTimeSlot(timeSlotResponse.data[0]));
-            }
+          // Update estimated delivery time
+          if (result.data.estimatedTime) {
+            toast.info(`Estimated delivery time: ${result.data.estimatedTime} minutes`);
           }
-        } catch (timeSlotError) {
-          console.error('Error fetching time slots:', timeSlotError);
-          toast.error('Failed to fetch delivery time slots');
+
+          // Check if there's a minimum order requirement
+          if (cartTotal < result.data.zone.minimumOrderAmount) {
+            toast.error(`Minimum order amount for this area is €${result.data.zone.minimumOrderAmount}`);
+            setIsDeliveryZoneValid(false);
+            return;
+          }
         }
+      }
+
+      // Get available time slots for the zone
+      try {
+        const timeSlotResponse = await orderService.getDeliveryTimeSlots(isOutOfZone ? nearestZone._id : result.data.zone._id);
+        if (timeSlotResponse.success && Array.isArray(timeSlotResponse.data)) {
+          setTimeSlots(timeSlotResponse.data);
+          if (timeSlotResponse.data.length > 0) {
+            setSelectedTimeSlot(timeSlotResponse.data[0].id);
+            dispatch(setTimeSlot(timeSlotResponse.data[0]));
+          }
+        }
+      } catch (timeSlotError) {
+        console.error('Error fetching time slots:', timeSlotError);
+        toast.error('Failed to fetch delivery time slots');
       }
       
       // Update form values with formatted address if provided

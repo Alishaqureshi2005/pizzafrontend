@@ -126,6 +126,22 @@ class OrderService {
     });
     return response.data;
   }
+
+  // Get nearest delivery zone
+  async getNearestDeliveryZone(coordinates) {
+    try {
+      const response = await api.get(`/delivery-zones/nearest`, {
+        params: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude
+        }
+      });
+      return response.data.data;
+    } catch (error) {
+      console.error('Error getting nearest delivery zone:', error);
+      return null;
+    }
+  }
 }
 
 export const orderService = new OrderService();
