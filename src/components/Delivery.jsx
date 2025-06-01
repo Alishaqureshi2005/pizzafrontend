@@ -9,6 +9,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import LocationPermissionDialog from './LocationPermissionDialog';
+import { restaurantService } from '../services/restaurantService';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -79,9 +80,22 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [initialMapCenter, setInitialMapCenter] = useState([24.7337, 69.7967]); // Default to Mithi coordinates
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [regionInfo, setRegionInfo] = useState(null);
+  const [nearestRestaurant, setNearestRestaurant] = useState(null);
+  const [restaurants, setRestaurants] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     fetchDeliveryZones();
+    // Get region information and restaurants
+    const mithiRegion = restaurantService.getRegionInfo('MITHI');
+    setRegionInfo(mithiRegion);
+    setInitialMapCenter([mithiRegion.center.latitude, mithiRegion.center.longitude]);
+    
+    // Fetch all restaurants in the region
+    fetchRestaurantsInRegion();
+    
     // Try to get user's location on component mount
     requestLocation();
   }, []);
@@ -105,6 +119,14 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         async (position) => {
           try {
             const newPosition = [position.coords.latitude, position.coords.longitude];
+            
+            // Validate if the location is within the Mithi region
+            if (!restaurantService.validateRestaurantLocation(position.coords.latitude, position.coords.longitude)) {
+              toast.error('Your current location is outside our service area. Please enter an address in the Mithi region.');
+              setLocationPermissionDenied(true);
+              return;
+            }
+
             setPosition(newPosition);
             setLocationPermissionDenied(false);
             setIsUpdatingLocation(false);
@@ -118,29 +140,40 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
               setLocation(data.display_name);
             }
             
-            // Automatically check delivery availability for this location
-            const availabilityResponse = await deliveryService.checkAvailability({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              orderAmount: 0
-            });
+            // Find nearest restaurant
+            const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
+              position.coords.latitude,
+              position.coords.longitude
+            );
 
-            if (availabilityResponse.success && availabilityResponse.data?.zone) {
-              // If location is in a delivery zone, auto-select it
-              const zoneId = availabilityResponse.data.zone._id;
-              setSelectedZone(zoneId);
+            if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
+              setNearestRestaurant(nearestRestaurantResponse.data);
               
-              // Fetch time slots for the zone
-              const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
-              setTimeSlots(availableSlots || []);
-              
-              toast.success('Location found! Please select a delivery time.');
+              // Check delivery availability
+              const availabilityResponse = await deliveryService.checkAvailability({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                orderAmount: 0
+              });
+
+              if (availabilityResponse.success && availabilityResponse.data?.zone) {
+                const zoneId = availabilityResponse.data.zone._id;
+                setSelectedZone(zoneId);
+                
+                // Fetch time slots for the zone
+                const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
+                setTimeSlots(availableSlots || []);
+                
+                toast.success(`Location found! Nearest restaurant: ${nearestRestaurantResponse.data.name} (${nearestRestaurantResponse.data.distance} km away)`);
+              } else {
+                toast.warning('This location might be outside our delivery zones. Please check the available zones on the map.');
+              }
             } else {
-              toast.warning('This location might be outside our delivery zones. Please check the available zones on the map.');
+              toast.error('Could not find a nearby restaurant. Please try another location.');
             }
           } catch (error) {
             console.error('Error processing location:', error);
-            toast.error('Error processing your location. Please try again or enter your address manually.');
+            toast.error(error.message || 'Error processing your location. Please try again or enter your address manually.');
           } finally {
             setLoading(false);
           }
@@ -251,7 +284,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         `countrycodes=pk&` + // Limit to Pakistan
         `limit=1&` +
         `addressdetails=1&` + // Get detailed address information
-        `viewbox=68.9,24.2,70.5,25.2` // Bounding box around Mithi region
+        `viewbox=${regionInfo.bounds.west},${regionInfo.bounds.south},${regionInfo.bounds.east},${regionInfo.bounds.north}` // Use region bounds
       );
 
       if (!response.ok) {
@@ -271,21 +304,27 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         longitude: parseFloat(result.lon)
       };
 
-      // Log the coordinates for debugging
-      console.log('Geocoded coordinates:', coordinates);
-
-      // Verify the coordinates are within a reasonable range for the Mithi region
-      if (coordinates.latitude < 24.2 || coordinates.latitude > 25.2 ||
-          coordinates.longitude < 68.9 || coordinates.longitude > 70.5) {
-        console.log('Coordinates outside service area:', coordinates);
+      // Verify the coordinates are within the Mithi region
+      if (!restaurantService.validateRestaurantLocation(coordinates.latitude, coordinates.longitude)) {
         toast.error('Address is outside our service area. Please enter an address in the Mithi region.');
         return null;
+      }
+
+      // Find nearest restaurant
+      const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
+        coordinates.latitude,
+        coordinates.longitude
+      );
+
+      if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
+        setNearestRestaurant(nearestRestaurantResponse.data);
+        toast.info(`Nearest restaurant: ${nearestRestaurantResponse.data.name} (${nearestRestaurantResponse.data.distance} km away)`);
       }
 
       return coordinates;
     } catch (error) {
       console.error('Geocoding error:', error);
-      toast.error('Could not find the address. Please try again or use the map to select your location.');
+      toast.error(error.message || 'Could not find the address. Please try again or use the map to select your location.');
       return null;
     }
   };
@@ -407,6 +446,38 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     }
   };
 
+  const fetchRestaurantsInRegion = async () => {
+    try {
+      const response = await restaurantService.getAllRestaurantsInRegion('MITHI');
+      if (response.success && Array.isArray(response.data)) {
+        setRestaurants(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurants:', error);
+      toast.error('Failed to fetch restaurants in the area');
+    }
+  };
+
+  const handleSearchRestaurants = async (search) => {
+    if (!search.trim()) {
+      fetchRestaurantsInRegion();
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const response = await restaurantService.searchRestaurantsInRegion(search, 'MITHI');
+      if (response.success && Array.isArray(response.data)) {
+        setRestaurants(response.data);
+      }
+    } catch (error) {
+      console.error('Error searching restaurants:', error);
+      toast.error('Failed to search restaurants');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   if (!isDeliveryOpen) return null;
 
   return (
@@ -456,6 +527,57 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
                   <FaLocationArrow className={isUpdatingLocation ? "animate-spin" : ""} />
                 </button>
               </div>
+
+              {/* Restaurant Search */}
+              <div className="mb-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      handleSearchRestaurants(e.target.value);
+                    }}
+                    placeholder="Search for restaurants..."
+                    className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {isSearching && (
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Restaurants List */}
+              {restaurants.length > 0 && (
+                <div className="mb-4 max-h-48 overflow-y-auto">
+                  <h3 className="font-semibold mb-2">Nearby Restaurants</h3>
+                  <div className="space-y-2">
+                    {restaurants.map((restaurant) => (
+                      <div
+                        key={restaurant._id}
+                        className="p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          if (restaurant.location) {
+                            setPosition([restaurant.location.latitude, restaurant.location.longitude]);
+                            setLocation(restaurant.address || restaurant.name);
+                            toast.info(`Selected ${restaurant.name} (${restaurant.distanceFromCenter} km from center)`);
+                          }
+                        }}
+                      >
+                        <div className="font-medium">{restaurant.name}</div>
+                        <div className="text-sm text-gray-600">
+                          {restaurant.address}
+                          {restaurant.distanceFromCenter && (
+                            <span className="ml-2">({restaurant.distanceFromCenter} km from center)</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {locationPermissionDenied && (
                 <div className="text-yellow-600 text-sm mb-4">
@@ -486,6 +608,22 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
                     zones={availableZones}
                     setLocation={setLocation}
                   />
+                  {/* Add restaurant markers */}
+                  {restaurants.map((restaurant) => (
+                    restaurant.location && (
+                      <Marker
+                        key={restaurant._id}
+                        position={[restaurant.location.latitude, restaurant.location.longitude]}
+                        eventHandlers={{
+                          click: () => {
+                            setPosition([restaurant.location.latitude, restaurant.location.longitude]);
+                            setLocation(restaurant.address || restaurant.name);
+                            toast.info(`Selected ${restaurant.name}`);
+                          }
+                        }}
+                      />
+                    )
+                  ))}
                 </MapContainer>
                 
                 {/* Zone Legend */}
@@ -564,6 +702,20 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
               <div className="mb-4 font-semibold">
                 Delivery Fee: {deliveryFee === 0 ? 'Free Delivery' : `$${deliveryFee.toFixed(2)}`}
               </div>
+
+              {nearestRestaurant && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <h3 className="font-semibold text-blue-800">Nearest Restaurant</h3>
+                  <p className="text-sm text-blue-600">
+                    {nearestRestaurant.name} - {nearestRestaurant.distance} km away
+                  </p>
+                  {!nearestRestaurant.isWithinServiceArea && (
+                    <p className="text-sm text-yellow-600 mt-1">
+                      Note: This location is outside our regular delivery area. Additional charges may apply.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {error && (
                 <div className="text-red-600 mb-4">

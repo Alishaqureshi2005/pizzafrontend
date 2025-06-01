@@ -79,6 +79,47 @@ const handleApiError = (error) => {
   }
 };
 
+// Add region constants
+const REGIONS = {
+  MITHI: {
+    name: 'Mithi',
+    bounds: {
+      north: 25.2,
+      south: 24.2,
+      east: 70.5,
+      west: 68.9
+    },
+    center: {
+      latitude: 24.7337,
+      longitude: 69.7967
+    }
+  }
+  // Add more regions as needed
+};
+
+// Helper function to check if coordinates are within a region
+const isWithinRegion = (latitude, longitude, region) => {
+  return (
+    latitude >= region.bounds.south &&
+    latitude <= region.bounds.north &&
+    longitude >= region.bounds.west &&
+    longitude <= region.bounds.east
+  );
+};
+
+// Helper function to calculate distance between two points
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 const restaurantService = {
   // Get all active restaurants (for customers)
   getRestaurants: async () => {
@@ -163,17 +204,248 @@ const restaurantService = {
     }
   },
 
-  // Find nearest restaurant
+  // Find nearest restaurant with region check
   findNearestRestaurant: async (latitude, longitude) => {
     try {
+      // First check if the location is within the Mithi region
+      if (!isWithinRegion(latitude, longitude, REGIONS.MITHI)) {
+        throw new Error('Location is outside our service area. Please enter an address in the Mithi region.');
+      }
+
       const response = await api.get(`/restaurants/nearest?latitude=${latitude}&longitude=${longitude}`, {
         headers: getAuthHeaders()
       });
+
+      if (response.data.success && response.data.data) {
+        const restaurant = response.data.data;
+        
+        // Calculate actual distance
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          restaurant.location.latitude,
+          restaurant.location.longitude
+        );
+
+        // Add distance information to the response
+        return {
+          ...response.data,
+          data: {
+            ...restaurant,
+            distance: distance.toFixed(2),
+            isWithinServiceArea: distance <= restaurant.serviceRadius
+          }
+        };
+      }
+
       return response.data;
     } catch (error) {
       console.error('Error finding nearest restaurant:', error);
       handleApiError(error);
     }
+  },
+
+  // Get restaurants by region with coordinates
+  getRestaurantsByRegion: async (regionName = 'MITHI') => {
+    try {
+      const region = REGIONS[regionName];
+      if (!region) {
+        throw new Error('Invalid region specified');
+      }
+
+      const response = await api.get('/restaurants', {
+        headers: getAuthHeaders(),
+        params: {
+          region: regionName,
+          latitude: region.center.latitude,
+          longitude: region.center.longitude,
+          includeCoordinates: true
+        }
+      });
+
+      // Format operating hours and add region information
+      if (response.data.success && Array.isArray(response.data.data)) {
+        response.data.data = response.data.data.map(restaurant => ({
+          ...restaurant,
+          formattedHours: restaurant.operatingHours ? 
+            Object.entries(restaurant.operatingHours).reduce((acc, [day, hours]) => {
+              if (hours && hours.open && hours.close) {
+                acc[day] = {
+                  open: formatTime(hours.open),
+                  close: formatTime(hours.close)
+                };
+              }
+              return acc;
+            }, {}) : {},
+          region: regionName,
+          isWithinServiceArea: restaurant.location ? 
+            isWithinRegion(
+              restaurant.location.latitude,
+              restaurant.location.longitude,
+              region
+            ) : false,
+          // Add distance from region center
+          distanceFromCenter: restaurant.location ? 
+            calculateDistance(
+              region.center.latitude,
+              region.center.longitude,
+              restaurant.location.latitude,
+              restaurant.location.longitude
+            ).toFixed(2) : null
+        }));
+
+        // Sort restaurants by distance from region center
+        response.data.data.sort((a, b) => {
+          if (!a.distanceFromCenter) return 1;
+          if (!b.distanceFromCenter) return -1;
+          return parseFloat(a.distanceFromCenter) - parseFloat(b.distanceFromCenter);
+        });
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching restaurants by region:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Get restaurant details by coordinates
+  getRestaurantByCoordinates: async (latitude, longitude) => {
+    try {
+      // First validate if coordinates are within any region
+      const region = Object.entries(REGIONS).find(([_, region]) => 
+        isWithinRegion(latitude, longitude, region)
+      );
+
+      if (!region) {
+        throw new Error('Location is outside our service areas');
+      }
+
+      const response = await api.get('/restaurants/nearby', {
+        headers: getAuthHeaders(),
+        params: {
+          latitude,
+          longitude,
+          region: region[0]
+        }
+      });
+
+      if (response.data.success && response.data.data) {
+        const restaurant = response.data.data;
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          restaurant.location.latitude,
+          restaurant.location.longitude
+        );
+
+        return {
+          ...response.data,
+          data: {
+            ...restaurant,
+            distance: distance.toFixed(2),
+            region: region[0],
+            isWithinServiceArea: distance <= restaurant.serviceRadius
+          }
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error finding restaurant by coordinates:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Get all restaurants in a region with their coordinates
+  getAllRestaurantsInRegion: async (regionName = 'MITHI') => {
+    try {
+      const region = REGIONS[regionName];
+      if (!region) {
+        throw new Error('Invalid region specified');
+      }
+
+      const response = await api.get('/restaurants/all', {
+        headers: getAuthHeaders(),
+        params: {
+          region: regionName,
+          includeCoordinates: true
+        }
+      });
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        return {
+          ...response.data,
+          data: response.data.data.map(restaurant => ({
+            ...restaurant,
+            region: regionName,
+            distanceFromCenter: restaurant.location ? 
+              calculateDistance(
+                region.center.latitude,
+                region.center.longitude,
+                restaurant.location.latitude,
+                restaurant.location.longitude
+              ).toFixed(2) : null
+          }))
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all restaurants in region:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Search restaurants by name in a region
+  searchRestaurantsInRegion: async (searchTerm, regionName = 'MITHI') => {
+    try {
+      const region = REGIONS[regionName];
+      if (!region) {
+        throw new Error('Invalid region specified');
+      }
+
+      const response = await api.get('/restaurants/search', {
+        headers: getAuthHeaders(),
+        params: {
+          search: searchTerm,
+          region: regionName,
+          includeCoordinates: true
+        }
+      });
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        return {
+          ...response.data,
+          data: response.data.data.map(restaurant => ({
+            ...restaurant,
+            region: regionName,
+            distanceFromCenter: restaurant.location ? 
+              calculateDistance(
+                region.center.latitude,
+                region.center.longitude,
+                restaurant.location.latitude,
+                restaurant.location.longitude
+              ).toFixed(2) : null
+          }))
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error searching restaurants in region:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Validate restaurant location
+  validateRestaurantLocation: (latitude, longitude) => {
+    return isWithinRegion(latitude, longitude, REGIONS.MITHI);
+  },
+
+  // Get region information
+  getRegionInfo: (regionName = 'MITHI') => {
+    return REGIONS[regionName] || null;
   },
 
   // Get time slots for a specific restaurant
