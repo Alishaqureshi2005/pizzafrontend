@@ -241,8 +241,11 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
 
   const geocodeAddress = async (address) => {
     try {
-      // Add country/region bias to improve search results
-      const searchQuery = `${address}, Sindh, Pakistan`;
+      // Add city to the search query if not already included
+      const searchQuery = address.includes(initialCity) 
+        ? address 
+        : `${address}, ${initialCity}, Sindh, Pakistan`;
+      
       const encodedAddress = encodeURIComponent(searchQuery);
       
       // Add additional parameters to improve search accuracy
@@ -272,9 +275,13 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         longitude: parseFloat(result.lon)
       };
 
+      // Log the coordinates for debugging
+      console.log('Geocoded coordinates:', coordinates);
+
       // Verify the coordinates are within a reasonable range for the Mithi region
       if (coordinates.latitude < 24.2 || coordinates.latitude > 25.2 ||
           coordinates.longitude < 68.9 || coordinates.longitude > 70.5) {
+        console.log('Coordinates outside service area:', coordinates);
         toast.error('Address is outside our service area. Please enter an address in the Mithi region.');
         return null;
       }
@@ -334,6 +341,9 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       setLoading(true);
       setError(null);
 
+      // Log the position for debugging
+      console.log('Checking delivery availability for position:', position);
+
       // Check delivery availability
       const availabilityResponse = await deliveryService.checkAvailability({
         latitude: position[0],
@@ -341,7 +351,35 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         orderAmount: 0
       });
 
+      console.log('Delivery availability response:', availabilityResponse);
+
       if (!availabilityResponse.success) {
+        // Try to find the nearest zone
+        const nearestZone = await deliveryService.getNearestDeliveryZone({
+          latitude: position[0],
+          longitude: position[1]
+        });
+
+        if (nearestZone) {
+          console.log('Found nearest zone:', nearestZone);
+          // Prepare delivery details with nearest zone
+          const deliveryDetails = {
+            address: location,
+            coordinates: {
+              latitude: position[0],
+              longitude: position[1]
+            },
+            zone: nearestZone,
+            timeSlot: selectedTimeSlot,
+            isOutOfZone: true
+          };
+
+          // Call onConfirm with the delivery details
+          onConfirm(deliveryDetails);
+          toast.warning('Location is outside regular delivery zones. Additional delivery charges may apply.');
+          return;
+        }
+
         toast.error('Delivery is not available at this location');
         return;
       }
@@ -354,7 +392,8 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
           longitude: position[1]
         },
         zone: availabilityResponse.data.zone,
-        timeSlot: selectedTimeSlot
+        timeSlot: selectedTimeSlot,
+        isOutOfZone: false
       };
 
       console.log('Submitting delivery details:', deliveryDetails);

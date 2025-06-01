@@ -17,7 +17,11 @@ import Pickup from '../components/pickup';
 const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+  }
 `;
 
 const CheckoutGrid = styled.div`
@@ -25,8 +29,9 @@ const CheckoutGrid = styled.div`
   grid-template-columns: 2fr 1fr;
   gap: 2rem;
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 `;
 
@@ -35,6 +40,10 @@ const FormSection = styled.div`
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const OrderSummary = styled.div`
@@ -43,6 +52,15 @@ const OrderSummary = styled.div`
   border-radius: 8px;
   position: sticky;
   top: 2rem;
+
+  @media (max-width: 1024px) {
+    position: static;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const DeliveryZoneInfo = styled.div`
@@ -52,15 +70,28 @@ const DeliveryZoneInfo = styled.div`
   border-radius: 6px;
   border: 1px solid #e0e0e0;
 
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
   h3 {
     font-size: 1.1rem;
     color: #333;
     margin-bottom: 0.5rem;
+
+    @media (max-width: 768px) {
+      font-size: 1rem;
+    }
   }
 
   .zone-details {
     font-size: 0.9rem;
     color: #666;
+    
+    @media (max-width: 768px) {
+      font-size: 0.85rem;
+    }
     
     div {
       margin: 0.3rem 0;
@@ -74,16 +105,30 @@ const Title = styled.h2`
   font-size: 1.5rem;
   margin-bottom: 1.5rem;
   color: #333;
+
+  @media (max-width: 768px) {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const FormGroup = styled.div`
   margin-bottom: 1.5rem;
+
+  @media (max-width: 768px) {
+    margin-bottom: 1rem;
+  }
 `;
 
 const Label = styled.label`
   display: block;
   margin-bottom: 0.5rem;
   color: #666;
+  font-size: 0.9rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+  }
 `;
 
 const Input = styled(Field)`
@@ -92,6 +137,11 @@ const Input = styled(Field)`
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
 
   &:focus {
     outline: none;
@@ -116,6 +166,11 @@ const Button = styled.button`
   cursor: pointer;
   transition: background 0.3s ease;
 
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+
   &:hover {
     background: #ff5252;
   }
@@ -132,6 +187,10 @@ const OrderItem = styled.div`
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #ddd;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const DeliveryZoneMessage = styled.div`
