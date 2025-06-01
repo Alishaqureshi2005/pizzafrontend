@@ -25,9 +25,9 @@ import OrderTracking from './pages/OrderTracking';
 import AdminNavbar from './components/AdminNavbar';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Header from './components/Header';
-import Pickup from './components/pickup';
-import Delivery from './components/Delivery';
+// import Header from './components/Header';
+// import Pickup from './components/pickup';
+// import Delivery from './components/Delivery';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -43,9 +43,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen flex flex-col">
       {isAdminRoute ? <AdminNavbar /> : <Navbar />}
-      {!isAdminRoute && <Header />}
-      {!isAdminRoute && <Delivery />}
-      {!isAdminRoute && <Pickup />}
+    
       <main className="flex-grow">
         <Routes>
           {/* Public Routes */}
