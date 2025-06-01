@@ -20,7 +20,8 @@ L.Icon.Default.mergeOptions({
 const LocationMarker = ({ position, setPosition, zones, setLocation }) => {
   const map = useMapEvents({
     async click(e) {
-      setPosition(e.latlng);
+      const newPosition = [e.latlng.lat, e.latlng.lng];
+      setPosition(newPosition);
       map.flyTo(e.latlng, map.getZoom());
       
       // Reverse geocode the clicked location
@@ -64,9 +65,9 @@ const LocationMarker = ({ position, setPosition, zones, setLocation }) => {
   );
 };
 
-const Delivery = ({ onConfirm }) => {
+const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) => {
   const { isDeliveryOpen, closeDelivery, setDeliveryAddress, orderType, setOrderType, deliveryFee, updateDeliveryFee } = useContext(AppContext);
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(initialAddress || '');
   const [position, setPosition] = useState(null);
   const [availableZones, setAvailableZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState('');
@@ -92,6 +93,18 @@ const Delivery = ({ onConfirm }) => {
       );
     }
   }, []);
+
+  // Add effect to handle initial address
+  useEffect(() => {
+    if (initialAddress) {
+      geocodeAddress(initialAddress).then(coordinates => {
+        if (coordinates) {
+          setPosition([coordinates.latitude, coordinates.longitude]);
+          setLocation(initialAddress);
+        }
+      });
+    }
+  }, [initialAddress]);
 
   const requestLocation = () => {
     if (navigator.geolocation) {
@@ -213,8 +226,17 @@ const Delivery = ({ onConfirm }) => {
     }
   };
 
-  const handleLocationChange = (e) => {
-    setLocation(e.target.value);
+  const handleLocationChange = async (e) => {
+    const newAddress = e.target.value;
+    setLocation(newAddress);
+    
+    // Geocode the address when it changes
+    if (newAddress) {
+      const coordinates = await geocodeAddress(newAddress);
+      if (coordinates) {
+        setPosition([coordinates.latitude, coordinates.longitude]);
+      }
+    }
   };
 
   const geocodeAddress = async (address) => {
@@ -334,6 +356,8 @@ const Delivery = ({ onConfirm }) => {
         zone: availabilityResponse.data.zone,
         timeSlot: selectedTimeSlot
       };
+
+      console.log('Submitting delivery details:', deliveryDetails);
 
       // Call onConfirm with the delivery details
       onConfirm(deliveryDetails);

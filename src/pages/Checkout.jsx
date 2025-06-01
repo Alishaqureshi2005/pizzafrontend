@@ -572,8 +572,16 @@ const Checkout = () => {
                 {orderType === 'Delivery' && (
                   <Delivery 
                     onConfirm={(details) => {
-                      console.log('Delivery details confirmed:', details);
+                      console.log('Delivery details received:', details);
                       setDeliveryDetails(details);
+                      // Update form values with the confirmed address
+                      setFieldValue('address', details.address);
+                      // If the address contains city and zip code, update those too
+                      const addressParts = details.address.split(',');
+                      if (addressParts.length >= 2) {
+                        setFieldValue('city', addressParts[1]?.trim() || '');
+                        setFieldValue('zipCode', addressParts[2]?.trim() || '');
+                      }
                     }}
                     initialAddress={values.address}
                     initialCity={values.city}
