@@ -79,34 +79,6 @@ const handleApiError = (error) => {
   }
 };
 
-// Add region constants
-const REGIONS = {
-  MITHI: {
-    name: 'Mithi',
-    bounds: {
-      north: 25.2,
-      south: 24.2,
-      east: 70.5,
-      west: 68.9
-    },
-    center: {
-      latitude: 24.7337,
-      longitude: 69.7967
-    }
-  }
-  // Add more regions as needed
-};
-
-// Helper function to check if coordinates are within a region
-const isWithinRegion = (latitude, longitude, region) => {
-  return (
-    latitude >= region.bounds.south &&
-    latitude <= region.bounds.north &&
-    longitude >= region.bounds.west &&
-    longitude <= region.bounds.east
-  );
-};
-
 // Helper function to calculate distance between two points
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Earth's radius in kilometers
@@ -202,9 +174,15 @@ const restaurantService = {
   // Get all active restaurants (for customers)
   getRestaurants: async () => {
     try {
+      console.log('Fetching all restaurants...');
       const response = await api.get('/restaurants', {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        params: {
+          includeCoordinates: true
+        }
       });
+      
+      console.log('Restaurants API Response:', response.data);
       
       // Format operating hours for each restaurant
       if (response.data.success && Array.isArray(response.data.data)) {
@@ -221,11 +199,12 @@ const restaurantService = {
               return acc;
             }, {}) : {}
         }));
+        console.log('Formatted restaurants data:', response.data.data);
       }
       
       return response.data;
     } catch (error) {
-      console.error('Error fetching restaurants:', error);
+      console.error('Error in getRestaurants:', error);
       handleApiError(error);
     }
   },
@@ -282,22 +261,24 @@ const restaurantService = {
     }
   },
 
-  // Find nearest restaurant with region check
+  // Find nearest restaurant with dynamic region check
   findNearestRestaurant: async (latitude, longitude) => {
     try {
-      // First check if the location is within the Mithi region
-      if (!isWithinRegion(latitude, longitude, REGIONS.MITHI)) {
-        throw new Error('Location is outside our service area. Please enter an address in the Mithi region.');
-      }
-
-      const response = await api.get(`/restaurants/nearest?latitude=${latitude}&longitude=${longitude}`, {
-        headers: getAuthHeaders()
+      console.log('Finding nearest restaurant for coordinates:', { latitude, longitude });
+      
+      const response = await api.get('/restaurants/nearby', {
+        headers: getAuthHeaders(),
+        params: {
+          latitude,
+          longitude,
+          includeCoordinates: true
+        }
       });
+
+      console.log('Nearest restaurant API response:', response.data);
 
       if (response.data.success && response.data.data) {
         const restaurant = response.data.data;
-        
-        // Calculate actual distance
         const distance = calculateDistance(
           latitude,
           longitude,
@@ -305,12 +286,14 @@ const restaurantService = {
           restaurant.location.longitude
         );
 
-        // Add distance information to the response
+        console.log('Calculated distance to restaurant:', distance);
+
         return {
           ...response.data,
           data: {
             ...restaurant,
             distance: distance.toFixed(2),
+            city: restaurant.city,
             isWithinServiceArea: distance <= restaurant.serviceRadius
           }
         };
@@ -318,7 +301,7 @@ const restaurantService = {
 
       return response.data;
     } catch (error) {
-      console.error('Error finding nearest restaurant:', error);
+      console.error('Error in findNearestRestaurant:', error);
       handleApiError(error);
     }
   },
@@ -529,14 +512,19 @@ const restaurantService = {
   // Get time slots for a specific restaurant
   getTimeSlots: async (restaurant) => {
     try {
+      console.log('Getting time slots for restaurant:', restaurant.name);
+      
       // Get current day
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       const today = days[new Date().getDay()];
+      console.log('Current day:', today);
       
       // Get operating hours for today
       const hours = restaurant.operatingHours?.[today];
+      console.log('Operating hours for today:', hours);
       
       if (!hours || !hours.open || !hours.close) {
+        console.log('Restaurant is closed today');
         return {
           success: false,
           message: 'Restaurant is closed today'
@@ -545,13 +533,14 @@ const restaurantService = {
       
       // Generate time slots
       const slots = generateTimeSlots(hours.open, hours.close);
+      console.log('Generated time slots:', slots);
       
       return {
         success: true,
         data: slots
       };
     } catch (error) {
-      console.error('Error generating time slots:', error);
+      console.error('Error in getTimeSlots:', error);
       handleApiError(error);
     }
   },
@@ -559,6 +548,8 @@ const restaurantService = {
   // Get all restaurants and determine regions
   getAllRestaurantsWithRegions: async () => {
     try {
+      console.log('Fetching all restaurants with regions...');
+      
       const response = await api.get('/restaurants', {
         headers: getAuthHeaders(),
         params: {
@@ -566,14 +557,18 @@ const restaurantService = {
         }
       });
 
+      console.log('All restaurants API response:', response.data);
+
       if (response.data.success && Array.isArray(response.data.data)) {
         const restaurants = response.data.data;
         
         // Group restaurants by city
         const cities = groupRestaurantsByCity(restaurants);
+        console.log('Grouped restaurants by city:', cities);
         
         // Calculate overall region bounds
         const regionBounds = calculateRegionBounds(restaurants);
+        console.log('Calculated overall region bounds:', regionBounds);
 
         return {
           ...response.data,
@@ -586,7 +581,7 @@ const restaurantService = {
 
       return response.data;
     } catch (error) {
-      console.error('Error fetching restaurants with regions:', error);
+      console.error('Error in getAllRestaurantsWithRegions:', error);
       handleApiError(error);
     }
   },
@@ -594,6 +589,8 @@ const restaurantService = {
   // Get restaurants by city
   getRestaurantsByCity: async (cityName) => {
     try {
+      console.log('Fetching restaurants for city:', cityName);
+      
       const response = await api.get('/restaurants', {
         headers: getAuthHeaders(),
         params: {
@@ -602,9 +599,13 @@ const restaurantService = {
         }
       });
 
+      console.log('City restaurants API response:', response.data);
+
       if (response.data.success && Array.isArray(response.data.data)) {
         const restaurants = response.data.data;
         const cityBounds = calculateRegionBounds(restaurants);
+        
+        console.log('Calculated city bounds:', cityBounds);
 
         return {
           ...response.data,
@@ -618,46 +619,7 @@ const restaurantService = {
 
       return response.data;
     } catch (error) {
-      console.error('Error fetching restaurants by city:', error);
-      handleApiError(error);
-    }
-  },
-
-  // Find nearest restaurant with city information
-  findNearestRestaurant: async (latitude, longitude) => {
-    try {
-      const response = await api.get('/restaurants/nearby', {
-        headers: getAuthHeaders(),
-        params: {
-          latitude,
-          longitude,
-          includeCoordinates: true
-        }
-      });
-
-      if (response.data.success && response.data.data) {
-        const restaurant = response.data.data;
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          restaurant.location.latitude,
-          restaurant.location.longitude
-        );
-
-        return {
-          ...response.data,
-          data: {
-            ...restaurant,
-            distance: distance.toFixed(2),
-            city: restaurant.city,
-            isWithinServiceArea: distance <= restaurant.serviceRadius
-          }
-        };
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error('Error finding nearest restaurant:', error);
+      console.error('Error in getRestaurantsByCity:', error);
       handleApiError(error);
     }
   },
@@ -665,6 +627,8 @@ const restaurantService = {
   // Validate location is within any service area
   validateLocation: async (latitude, longitude) => {
     try {
+      console.log('Validating location:', { latitude, longitude });
+      
       const response = await api.get('/restaurants/validate-location', {
         headers: getAuthHeaders(),
         params: {
@@ -673,9 +637,10 @@ const restaurantService = {
         }
       });
 
+      console.log('Location validation response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error validating location:', error);
+      console.error('Error in validateLocation:', error);
       handleApiError(error);
     }
   },

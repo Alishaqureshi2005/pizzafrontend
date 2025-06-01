@@ -90,20 +90,25 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const [availableCities, setAvailableCities] = useState([]);
 
   useEffect(() => {
+    console.log('Delivery component mounted');
+    console.log('Initial props:', { initialAddress, initialCity, initialZipCode });
     fetchRegionsAndRestaurants();
-    // Try to get user's location on component mount
     requestLocation();
   }, []);
 
   const fetchRegionsAndRestaurants = async () => {
     try {
+      console.log('Fetching regions and restaurants...');
       const response = await restaurantService.getAllRestaurantsWithRegions();
+      console.log('Regions and restaurants response:', response);
+      
       if (response.success && response.regions) {
         setRegions(response.regions);
         setAvailableCities(Object.values(response.regions.cities));
         
         // Set initial map center to overall region center
         if (response.regions.overall?.center) {
+          console.log('Setting initial map center:', response.regions.overall.center);
           setInitialMapCenter([
             response.regions.overall.center.latitude,
             response.regions.overall.center.longitude
@@ -111,20 +116,24 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         }
       }
     } catch (error) {
-      console.error('Error fetching regions:', error);
+      console.error('Error in fetchRegionsAndRestaurants:', error);
       toast.error('Failed to fetch restaurant regions');
     }
   };
 
   const handleCitySelect = async (cityName) => {
     try {
+      console.log('City selected:', cityName);
       const response = await restaurantService.getRestaurantsByCity(cityName);
+      console.log('City restaurants response:', response);
+      
       if (response.success && response.region) {
         setSelectedCity(response.region);
         setRestaurants(response.data);
         
         // Update map center to city center
         if (response.region.center) {
+          console.log('Updating map center to city center:', response.region.center);
           setInitialMapCenter([
             response.region.center.latitude,
             response.region.center.longitude
@@ -132,26 +141,31 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         }
       }
     } catch (error) {
-      console.error('Error fetching city restaurants:', error);
+      console.error('Error in handleCitySelect:', error);
       toast.error('Failed to fetch restaurants for selected city');
     }
   };
 
   const requestLocation = () => {
+    console.log('Requesting user location...');
     if (navigator.geolocation) {
       setLoading(true);
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
+            console.log('Got user location:', position.coords);
             const newPosition = [position.coords.latitude, position.coords.longitude];
             
             // Validate if the location is within any service area
+            console.log('Validating location...');
             const validationResponse = await restaurantService.validateLocation(
               position.coords.latitude,
               position.coords.longitude
             );
+            console.log('Location validation response:', validationResponse);
 
             if (!validationResponse.success) {
+              console.log('Location outside service areas');
               toast.error('Your current location is outside our service areas. Please enter an address in a supported city.');
               setLocationPermissionDenied(true);
               return;
@@ -162,35 +176,43 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
             setIsUpdatingLocation(false);
             
             // Try to get address from coordinates using reverse geocoding
+            console.log('Reverse geocoding location...');
             const response = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
             );
             const data = await response.json();
+            console.log('Reverse geocoding response:', data);
+            
             if (data.display_name) {
               setLocation(data.display_name);
             }
             
             // Find nearest restaurant
+            console.log('Finding nearest restaurant...');
             const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
               position.coords.latitude,
               position.coords.longitude
             );
+            console.log('Nearest restaurant response:', nearestRestaurantResponse);
 
             if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
               setNearestRestaurant(nearestRestaurantResponse.data);
               
               // Check delivery availability
+              console.log('Checking delivery availability...');
               const availabilityResponse = await deliveryService.checkAvailability({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 orderAmount: 0
               });
+              console.log('Delivery availability response:', availabilityResponse);
 
               if (availabilityResponse.success && availabilityResponse.data?.zone) {
                 const zoneId = availabilityResponse.data.zone._id;
                 setSelectedZone(zoneId);
                 
                 // Fetch time slots for the zone
+                console.log('Fetching time slots for zone:', zoneId);
                 const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
                 setTimeSlots(availableSlots || []);
                 
@@ -209,22 +231,26 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
           }
         },
         (error) => {
-          console.error('Error getting location:', error);
+          console.error('Geolocation error:', error);
           setLocationPermissionDenied(true);
           setLoading(false);
           setIsUpdatingLocation(false);
           
           switch (error.code) {
             case error.PERMISSION_DENIED:
+              console.log('Location permission denied');
               toast.warning('Location access denied. Please enter your address manually or click the location button to try again.');
               break;
             case error.POSITION_UNAVAILABLE:
+              console.log('Location information unavailable');
               toast.error('Location information is unavailable. Please enter your address manually.');
               break;
             case error.TIMEOUT:
+              console.log('Location request timed out');
               toast.error('Location request timed out. Please enter your address manually.');
               break;
             default:
+              console.log('Unknown geolocation error');
               toast.error('An error occurred while getting your location. Please enter your address manually.');
           }
         },
@@ -235,6 +261,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         }
       );
     } else {
+      console.log('Geolocation not supported');
       toast.warning('Geolocation is not supported by your browser. Please enter your address manually.');
     }
   };
@@ -300,11 +327,14 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
 
   const geocodeAddress = async (address) => {
     try {
+      console.log('Geocoding address:', address);
+      
       // Add city to the search query if not already included
       const searchQuery = address.includes(initialCity) 
         ? address 
-        : `${address}, ${initialCity}, Sindh, Pakistan`;
+        : `${address}, ${initialCity}, Pakistan`;
       
+      console.log('Search query:', searchQuery);
       const encodedAddress = encodeURIComponent(searchQuery);
       
       // Add additional parameters to improve search accuracy
@@ -313,8 +343,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         `format=json&q=${encodedAddress}&` +
         `countrycodes=pk&` + // Limit to Pakistan
         `limit=1&` +
-        `addressdetails=1&` + // Get detailed address information
-        `viewbox=${regionInfo.bounds.west},${regionInfo.bounds.south},${regionInfo.bounds.east},${regionInfo.bounds.north}` // Use region bounds
+        `addressdetails=1` // Get detailed address information
       );
 
       if (!response.ok) {
@@ -322,6 +351,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       }
 
       const data = await response.json();
+      console.log('Geocoding response:', data);
       
       if (!data || data.length === 0) {
         toast.error('Address not found. Please try a more specific address or use the map.');
@@ -333,18 +363,28 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         latitude: parseFloat(result.lat),
         longitude: parseFloat(result.lon)
       };
+      console.log('Geocoded coordinates:', coordinates);
 
-      // Verify the coordinates are within the Mithi region
-      if (!restaurantService.validateRestaurantLocation(coordinates.latitude, coordinates.longitude)) {
-        toast.error('Address is outside our service area. Please enter an address in the Mithi region.');
+      // Validate the location is within any service area
+      console.log('Validating geocoded location...');
+      const validationResponse = await restaurantService.validateLocation(
+        coordinates.latitude,
+        coordinates.longitude
+      );
+      console.log('Location validation response:', validationResponse);
+
+      if (!validationResponse.success) {
+        toast.error('Address is outside our service areas. Please enter an address in a supported city.');
         return null;
       }
 
       // Find nearest restaurant
+      console.log('Finding nearest restaurant...');
       const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
         coordinates.latitude,
         coordinates.longitude
       );
+      console.log('Nearest restaurant response:', nearestRestaurantResponse);
 
       if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
         setNearestRestaurant(nearestRestaurantResponse.data);
