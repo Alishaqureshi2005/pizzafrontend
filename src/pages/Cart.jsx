@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { FaTrash, FaMinus, FaPlus, FaShoppingCart, FaArrowRight } from 'react-icons/fa';
+import { FaTrash, FaMinus, FaPlus } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import {
   fetchCart,
@@ -9,13 +9,11 @@ import {
   updateCartItem,
   clearCart
 } from '../store/slices/cartSlice';
-import { CartContext } from '../context/CartContext';
 
 const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { items, total, deliveryFee, loading, error } = useSelector((state) => state.cart);
-  const { cart, removeFromCart: contextRemoveFromCart, updateQuantity, clearCart: contextClearCart } = React.useContext(CartContext);
 
   useEffect(() => {
     loadCart();
@@ -113,13 +111,6 @@ const Cart = () => {
     }
   };
 
-  const handleCheckout = () => {
-    if (cart.items.length === 0) {
-      return;
-    }
-    navigate('/checkout');
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
@@ -169,8 +160,6 @@ const Cart = () => {
       </div>
     );
   }
-
-  const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1), 0);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -269,7 +258,7 @@ const Cart = () => {
               <div className="space-y-4">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>€{subtotal.toFixed(2)}</span>
+                  <span>€{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
@@ -278,7 +267,7 @@ const Cart = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-semibold text-gray-800">
                     <span>Total</span>
-                    <span>€{(subtotal + deliveryFee).toFixed(2)}</span>
+                    <span>€{(total + deliveryFee).toFixed(2)}</span>
                   </div>
                 </div>
                 <button

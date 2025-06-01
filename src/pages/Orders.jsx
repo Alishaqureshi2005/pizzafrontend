@@ -2,63 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/orderService';
 import { toast } from 'react-toastify';
-import { FaSpinner, FaCheck, FaTimes, FaClock, FaTruck, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaShoppingBag, FaMapMarkerAlt, FaClock, FaCheck, FaTimes } from 'react-icons/fa';
 
 const Orders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filters, setFilters] = useState({
+    status: '',
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
 
   useEffect(() => {
     fetchOrders();
-  }, [filter]);
+  }, [filters]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await orderService.getUserOrders({ status: filter !== 'all' ? filter : undefined });
+      const response = await orderService.getUserOrders(filters);
       if (response.success) {
         setOrders(response.data);
       } else {
-        toast.error(response.message || 'Failed to fetch orders');
+        toast.error(response.message || 'Error fetching orders');
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to fetch orders');
+      toast.error('Error fetching orders');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending':
-        return <FaClock className="text-yellow-500" />;
-      case 'preparing':
-        return <FaSpinner className="text-blue-500 animate-spin" />;
-      case 'ready':
-        return <FaCheck className="text-green-500" />;
-      case 'delivering':
-        return <FaTruck className="text-blue-500" />;
-      case 'delivered':
-        return <FaCheck className="text-green-500" />;
-      case 'cancelled':
-        return <FaTimes className="text-red-500" />;
-      default:
-        return null;
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const options = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const getStatusColor = (status) => {
@@ -69,10 +50,8 @@ const Orders = () => {
         return 'bg-blue-100 text-blue-800';
       case 'ready':
         return 'bg-green-100 text-green-800';
-      case 'delivering':
-        return 'bg-blue-100 text-blue-800';
       case 'delivered':
-        return 'bg-green-100 text-green-800';
+        return 'bg-gray-100 text-gray-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       default:
@@ -80,104 +59,135 @@ const Orders = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <FaSpinner className="animate-spin text-4xl text-blue-500" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">My Orders</h1>
 
-      {/* Filter Controls */}
-      <div className="mb-6">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2"
-        >
-          <option value="all">All Orders</option>
-          <option value="pending">Pending</option>
-          <option value="preparing">Preparing</option>
-          <option value="ready">Ready</option>
-          <option value="delivering">Delivering</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            >
+              <option value="">All Orders</option>
+              <option value="pending">Pending</option>
+              <option value="preparing">Preparing</option>
+              <option value="ready">Ready</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+            <select
+              name="sortBy"
+              value={filters.sortBy}
+              onChange={handleFilterChange}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            >
+              <option value="date">Date</option>
+              <option value="status">Status</option>
+              <option value="total">Total Amount</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Order</label>
+            <select
+              name="sortOrder"
+              value={filters.sortOrder}
+              onChange={handleFilterChange}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Orders List */}
-      {orders.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No orders found</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
+      <div className="space-y-4">
+        {orders.length === 0 ? (
+          <div className="text-center py-8">
+            <FaShoppingBag className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No orders found</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by creating a new order.</p>
+            <div className="mt-6">
+              <button
+                onClick={() => navigate('/menu')}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Browse Menu
+              </button>
+            </div>
+          </div>
+        ) : (
+          orders.map((order) => (
             <div
               key={order._id}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => navigate(`/orders/${order._id}`)}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-semibold">Order #{order._id.slice(-6)}</h3>
-                  <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
-                </div>
-                <div className={`px-3 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(order.status)}
-                    <span className="capitalize">{order.status}</span>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">Order #{order._id.slice(-6)}</h3>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    </span>
                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Order Items */}
-                <div>
-                  <h4 className="font-medium mb-2">Items</h4>
-                  <div className="space-y-1">
-                    {order.items.map((item) => (
-                      <div key={item._id} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.product.name}</span>
-                        <span>${(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Order Details */}
-                <div>
-                  <h4 className="font-medium mb-2">Details</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Order Type</span>
-                      <span className="capitalize">{order.orderType}</span>
-                    </div>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p className="flex items-center">
+                      <FaClock className="mr-2" />
+                      {formatDate(order.createdAt)}
+                    </p>
                     {order.orderType === 'delivery' && (
-                      <div className="flex items-start gap-2">
-                        <FaMapMarkerAlt className="mt-1" />
-                        <span className="flex-1">{order.deliveryAddress.address}</span>
-                      </div>
+                      <p className="flex items-center">
+                        <FaMapMarkerAlt className="mr-2" />
+                        {order.deliveryAddress?.address}
+                      </p>
                     )}
-                    <div className="flex justify-between">
-                      <span>Delivery Fee</span>
-                      <span>${order.deliveryCharge.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold">
-                      <span>Total</span>
-                      <span>${order.totalPrice.toFixed(2)}</span>
-                    </div>
+                    <p className="flex items-center">
+                      <FaShoppingBag className="mr-2" />
+                      {order.items.length} items
+                    </p>
                   </div>
+                </div>
+                <div className="mt-4 md:mt-0 md:ml-6 text-right">
+                  <p className="text-lg font-semibold">${order.totalPrice.toFixed(2)}</p>
+                  <p className="text-sm text-gray-600">
+                    {order.orderType === 'delivery' ? 'Delivery' : 'Pickup'}
+                  </p>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };

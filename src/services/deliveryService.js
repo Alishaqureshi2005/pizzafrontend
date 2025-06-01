@@ -1,5 +1,8 @@
 import api from './api';
 import { validateDelivery } from '../utils/deliveryValidation';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 class DeliveryService {
   async getDeliveryZones() {
@@ -233,6 +236,56 @@ class DeliveryService {
     } catch (error) {
       console.error('Error updating time slot:', error);
       throw new Error('Failed to update time slot');
+    }
+  }
+
+  // Check delivery availability for a location
+  async checkAvailabilityForLocation(data) {
+    try {
+      const response = await axios.post(`${API_URL}/delivery-zones/check-availability`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error checking delivery availability' };
+    }
+  }
+
+  // Get time slots for a delivery zone
+  async getTimeSlotsForZone(zoneId) {
+    try {
+      const response = await axios.get(`${API_URL}/delivery-zones/${zoneId}/time-slots`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error fetching time slots' };
+    }
+  }
+
+  // Get all delivery zones
+  async getAllZones() {
+    try {
+      const response = await axios.get(`${API_URL}/delivery-zones`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error fetching delivery zones' };
+    }
+  }
+
+  // Get delivery zone by ID
+  async getZoneById(zoneId) {
+    try {
+      const response = await axios.get(`${API_URL}/delivery-zones/${zoneId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error fetching delivery zone' };
+    }
+  }
+
+  // Get nearest delivery zone
+  async getNearestZone(coordinates) {
+    try {
+      const response = await axios.post(`${API_URL}/delivery-zones/nearest`, coordinates);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Error finding nearest delivery zone' };
     }
   }
 }
