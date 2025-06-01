@@ -581,13 +581,9 @@ const Checkout = () => {
                         <Input 
                           type="text" 
                           name="address"
-                          onBlur={(e) => handleAddressChange(e.target.value, setFieldValue, values)}
                           onChange={(e) => {
                             setFieldValue('address', e.target.value);
-                            setIsDeliveryZoneValid(false);
-                            setTimeSlots([]);
-                            setSelectedTimeSlot('');
-                            // Reset delivery details when address changes
+                            // Remove automatic validation on change
                             setDeliveryDetails(null);
                           }}
                         />

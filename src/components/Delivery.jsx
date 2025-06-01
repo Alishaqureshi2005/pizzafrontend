@@ -200,22 +200,22 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
               
               // Check delivery availability
               console.log('Checking delivery availability...');
-              const availabilityResponse = await deliveryService.checkAvailability({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                orderAmount: 0
-              });
+            const availabilityResponse = await deliveryService.checkAvailability({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              orderAmount: 0
+            });
               console.log('Delivery availability response:', availabilityResponse);
 
-              if (availabilityResponse.success && availabilityResponse.data?.zone) {
-                const zoneId = availabilityResponse.data.zone._id;
-                setSelectedZone(zoneId);
-                
-                // Fetch time slots for the zone
+            if (availabilityResponse.success && availabilityResponse.data?.zone) {
+              const zoneId = availabilityResponse.data.zone._id;
+              setSelectedZone(zoneId);
+              
+              // Fetch time slots for the zone
                 console.log('Fetching time slots for zone:', zoneId);
-                const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
-                setTimeSlots(availableSlots || []);
-                
+              const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
+              setTimeSlots(availableSlots || []);
+              
                 toast.success(`Location found! Nearest restaurant: ${nearestRestaurantResponse.data.name} (${nearestRestaurantResponse.data.distance} km away)`);
               } else {
                 toast.warning('This location might be outside our delivery zones. Please check the available zones on the map.');
@@ -365,20 +365,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       };
       console.log('Geocoded coordinates:', coordinates);
 
-      // Validate the location is within any service area
-      console.log('Validating geocoded location...');
-      const validationResponse = await restaurantService.validateLocation(
-        coordinates.latitude,
-        coordinates.longitude
-      );
-      console.log('Location validation response:', validationResponse);
-
-      if (!validationResponse.success) {
-        toast.error('Address is outside our service areas. Please enter an address in a supported city.');
-        return null;
-      }
-
-      // Find nearest restaurant
+      // Find nearest restaurant without validating service area
       console.log('Finding nearest restaurant...');
       const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
         coordinates.latitude,
@@ -443,9 +430,9 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     }
 
     try {
-      setLoading(true);
-      setError(null);
-
+    setLoading(true);
+    setError(null);
+    
       // Log the position for debugging
       console.log('Checking delivery availability for position:', position);
 
@@ -457,7 +444,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       });
 
       console.log('Delivery availability response:', availabilityResponse);
-
+      
       if (!availabilityResponse.success) {
         // Try to find the nearest zone
         const nearestZone = await deliveryService.getNearestDeliveryZone({
@@ -499,14 +486,14 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         zone: availabilityResponse.data.zone,
         timeSlot: selectedTimeSlot,
         isOutOfZone: false
-      };
+        };
 
       console.log('Submitting delivery details:', deliveryDetails);
 
       // Call onConfirm with the delivery details
       onConfirm(deliveryDetails);
       
-      toast.success('Delivery location confirmed!');
+        toast.success('Delivery location confirmed!');
     } catch (error) {
       console.error('Error confirming delivery location:', error);
       setError('Failed to confirm delivery location. Please try again.');
