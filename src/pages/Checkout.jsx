@@ -245,12 +245,38 @@ const Checkout = () => {
       // Calculate cart total for minimum order check
       const cartTotal = checkoutData?.total || 0;
       
-      // Get coordinates from address using geocoding service
-      // For now, using dummy coordinates - you should implement proper geocoding
-      const coordinates = {
-        latitude: 40.730610,
-        longitude: -73.935242
-      };
+      // Get coordinates using Google Maps Geocoding
+      let coordinates = null;
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        const result = await new Promise((resolve, reject) => {
+          geocoder.geocode({ address: address }, (results, status) => {
+            if (status === 'OK') {
+              resolve(results[0]);
+            } else {
+              reject(new Error('Geocoding failed'));
+            }
+          });
+        });
+
+        coordinates = {
+          latitude: result.geometry.location.lat(),
+          longitude: result.geometry.location.lng()
+        };
+
+        // Update delivery details with coordinates
+        setDeliveryDetails(prev => ({
+          ...prev,
+          coordinates,
+          address: address
+        }));
+
+      } catch (geocodeError) {
+        console.error('Geocoding error:', geocodeError);
+        toast.error('Could not validate address. Please check and try again.');
+        setIsDeliveryZoneValid(false);
+        return;
+      }
 
       // Use the new delivery zone checking functionality
       const result = await dispatch(checkDeliveryAvailability({
@@ -547,7 +573,25 @@ const Checkout = () => {
                 {orderType === 'Pickup' && (
                   <Pickup onConfirm={setPickupDetails} />
                 )}
-                {console.log('isValid:', isValid, 'deliveryDetails:', deliveryDetails, 'pickupDetails:', pickupDetails, 'orderType:', orderType)}
+                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '4px' }}>
+                  <h4>Debug Information:</h4>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    <li>Form Valid: {isValid ? '✅' : '❌'}</li>
+                    <li>Is Submitting: {isSubmitting ? '✅' : '❌'}</li>
+                    <li>Is Processing: {isProcessing ? '✅' : '❌'}</li>
+                    {orderType === 'Delivery' && (
+                      <>
+                        <li>Delivery Details: {deliveryDetails ? '✅' : '❌'}</li>
+                        <li>Coordinates: {deliveryDetails?.coordinates ? '✅' : '❌'}</li>
+                        <li>Valid Latitude: {typeof deliveryDetails?.coordinates?.latitude === 'number' ? '✅' : '❌'}</li>
+                        <li>Valid Longitude: {typeof deliveryDetails?.coordinates?.longitude === 'number' ? '✅' : '❌'}</li>
+                      </>
+                    )}
+                    {orderType === 'Pickup' && (
+                      <li>Pickup Details: {pickupDetails ? '✅' : '❌'}</li>
+                    )}
+                  </ul>
+                </div>
                 <Button 
                   type="submit" 
                   disabled={
