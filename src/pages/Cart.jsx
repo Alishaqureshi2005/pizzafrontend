@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { FaTrash, FaMinus, FaPlus } from 'react-icons/fa';
+import { FaTrash, FaMinus, FaPlus, FaShoppingCart, FaArrowRight } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import {
   fetchCart,
@@ -9,11 +9,13 @@ import {
   updateCartItem,
   clearCart
 } from '../store/slices/cartSlice';
+import { CartContext } from '../context/CartContext';
 
 const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { items, total, deliveryFee, loading, error } = useSelector((state) => state.cart);
+  const { cart, removeFromCart: contextRemoveFromCart, updateQuantity, clearCart: contextClearCart } = React.useContext(CartContext);
 
   useEffect(() => {
     loadCart();
@@ -42,45 +44,51 @@ const Cart = () => {
     }
   };
 
-  const handleCheckout = async () => {
+  const handlePlaceOrder = async () => {
     try {
       if (!items || items.length === 0) {
         toast.error('Your cart is empty.');
         return;
       }
+
       // Calculate total
       const cartTotal = items.reduce((total, item) => {
         return total + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
       }, 0);
+
       if (isNaN(cartTotal) || cartTotal <= 0) {
         toast.error('Invalid cart total. Please try again.');
         return;
       }
-      // Refresh the cart data before proceeding to checkout
+
+      // Refresh the cart data before proceeding
       const cartData = await dispatch(fetchCart()).unwrap();
       if (!cartData || !cartData.data || !cartData.data.items || cartData.data.items.length === 0) {
         toast.error('Failed to fetch cart data');
         return;
       }
-      // Store complete cart data for checkout
-      const checkoutData = {
-        items: cartData.data.items.map(item => ({
-          ...item,
-          price: parseFloat(item.price) || 0,
-          quantity: parseInt(item.quantity) || 1
-        })),
-        cartId: cartData.data._id,
-        total: cartTotal,
-        subtotal: cartTotal,
-        deliveryFee: deliveryFee,
-        itemCount: cartData.data.items.length,
-        user: cartData.data.user
-      };
-      localStorage.setItem('checkoutData', JSON.stringify(checkoutData));
-      navigate('/checkout');
+
+      // Navigate to order page
+      navigate('/order', {
+        state: {
+          cartData: {
+            items: cartData.data.items.map(item => ({
+              ...item,
+              price: parseFloat(item.price) || 0,
+              quantity: parseInt(item.quantity) || 1
+            })),
+            cartId: cartData.data._id,
+            total: cartTotal,
+            subtotal: cartTotal,
+            deliveryFee: deliveryFee,
+            itemCount: cartData.data.items.length,
+            user: cartData.data.user
+          }
+        }
+      });
     } catch (error) {
-      console.error('Error proceeding to checkout:', error);
-      toast.error('Failed to proceed to checkout. Please try again.');
+      console.error('Error proceeding to order:', error);
+      toast.error('Failed to proceed to order. Please try again.');
     }
   };
 
@@ -101,9 +109,15 @@ const Cart = () => {
       toast.success('Cart cleared successfully');
     } catch (error) {
       console.error('Error clearing cart:', error);
-      toast.error('Failed to clear cart. Please try again.');
-      loadCart();
+      toast.error('Failed to clear cart');
     }
+  };
+
+  const handleCheckout = () => {
+    if (cart.items.length === 0) {
+      return;
+    }
+    navigate('/checkout');
   };
 
   if (loading) {
@@ -155,6 +169,8 @@ const Cart = () => {
       </div>
     );
   }
+
+  const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1), 0);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -253,7 +269,7 @@ const Cart = () => {
               <div className="space-y-4">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>€{total.toFixed(2)}</span>
+                  <span>€{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
@@ -262,15 +278,15 @@ const Cart = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-semibold text-gray-800">
                     <span>Total</span>
-                    <span>€{(total + deliveryFee).toFixed(2)}</span>
+                    <span>€{(subtotal + deliveryFee).toFixed(2)}</span>
                   </div>
                 </div>
                 <button
-                  onClick={handleCheckout}
+                  onClick={handlePlaceOrder}
                   className="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition-colors"
                   disabled={loading}
                 >
-                  Proceed to Checkout
+                  Place Order
                 </button>
               </div>
             </div>

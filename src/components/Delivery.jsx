@@ -67,7 +67,7 @@ const LocationMarker = ({ position, setPosition, zones, setLocation }) => {
 };
 
 const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) => {
-  const { isDeliveryOpen, closeDelivery, setDeliveryAddress, orderType, setOrderType, deliveryFee, updateDeliveryFee } = useContext(AppContext);
+  const { isDeliveryOpen, closeDelivery } = useContext(AppContext);
   const [location, setLocation] = useState(initialAddress || '');
   const [position, setPosition] = useState(null);
   const [availableZones, setAvailableZones] = useState([]);
@@ -80,11 +80,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [initialMapCenter, setInitialMapCenter] = useState([24.7337, 69.7967]); // Default to Mithi coordinates
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
-  const [regionInfo, setRegionInfo] = useState(null);
-  const [nearestRestaurant, setNearestRestaurant] = useState(null);
-  const [restaurants, setRestaurants] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const [regions, setRegions] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
   const [availableCities, setAvailableCities] = useState([]);
@@ -129,7 +124,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       
       if (response.success && response.region) {
         setSelectedCity(response.region);
-        setRestaurants(response.data);
         
         // Update map center to city center
         if (response.region.center) {
@@ -196,27 +190,27 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
             console.log('Nearest restaurant response:', nearestRestaurantResponse);
 
             if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
-              setNearestRestaurant(nearestRestaurantResponse.data);
+              const nearestRestaurant = nearestRestaurantResponse.data;
               
               // Check delivery availability
               console.log('Checking delivery availability...');
-            const availabilityResponse = await deliveryService.checkAvailability({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              orderAmount: 0
-            });
+              const availabilityResponse = await deliveryService.checkAvailability({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                orderAmount: 0
+              });
               console.log('Delivery availability response:', availabilityResponse);
 
-            if (availabilityResponse.success && availabilityResponse.data?.zone) {
-              const zoneId = availabilityResponse.data.zone._id;
-              setSelectedZone(zoneId);
-              
-              // Fetch time slots for the zone
+              if (availabilityResponse.success && availabilityResponse.data?.zone) {
+                const zoneId = availabilityResponse.data.zone._id;
+                setSelectedZone(zoneId);
+                
+                // Fetch time slots for the zone
                 console.log('Fetching time slots for zone:', zoneId);
-              const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
-              setTimeSlots(availableSlots || []);
-              
-                toast.success(`Location found! Nearest restaurant: ${nearestRestaurantResponse.data.name} (${nearestRestaurantResponse.data.distance} km away)`);
+                const { availableSlots } = await deliveryService.getTimeSlots(zoneId);
+                setTimeSlots(availableSlots || []);
+                
+                toast.success(`Location found! Nearest restaurant: ${nearestRestaurant.name} (${nearestRestaurant.distance} km away)`);
               } else {
                 toast.warning('This location might be outside our delivery zones. Please check the available zones on the map.');
               }
@@ -283,35 +277,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     toast.info('You can still enter your address manually or try again later.');
   };
 
-  const fetchDeliveryZones = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await deliveryService.getDeliveryZones();
-      
-      if (response && Array.isArray(response)) {
-        setAvailableZones(response);
-        // Set initial map center to first zone if available
-        if (response.length > 0 && response[0].coordinates) {
-          setInitialMapCenter([
-            response[0].coordinates.latitude,
-            response[0].coordinates.longitude
-          ]);
-        }
-      } else {
-        console.error('Invalid zones data received:', response);
-        setError('Failed to load delivery zones');
-        toast.error('Failed to load delivery zones');
-      }
-    } catch (error) {
-      console.error('Error fetching delivery zones:', error);
-      setError('Failed to fetch delivery zones');
-      toast.error('Failed to fetch delivery zones');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLocationChange = async (e) => {
     const newAddress = e.target.value;
     setLocation(newAddress);
@@ -351,88 +316,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     }
   };
 
-  const geocodeAddress = async (address) => {
-    try {
-      console.log('Geocoding address:', address);
-      
-      const searchQuery = address.includes(initialCity) 
-        ? address 
-        : `${address}, ${initialCity}, Pakistan`;
-      
-      console.log('Search query:', searchQuery);
-      const encodedAddress = encodeURIComponent(searchQuery);
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `format=json&q=${encodedAddress}&` +
-        `countrycodes=pk&` +
-        `limit=1&` +
-        `addressdetails=1`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to connect to geocoding service');
-      }
-
-      const data = await response.json();
-      console.log('Geocoding response:', data);
-      
-      if (!data || data.length === 0) {
-        toast.error('Address not found. Please try a more specific address or use the map.');
-        return null;
-      }
-
-      const result = data[0];
-      const coordinates = {
-        latitude: parseFloat(result.lat),
-        longitude: parseFloat(result.lon)
-      };
-      console.log('Geocoded coordinates:', coordinates);
-
-      return coordinates;
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      toast.error(error.message || 'Could not find the address. Please try again or use the map to select your location.');
-      return null;
-    }
-  };
-
-  const handleZoneSelect = async (e) => {
-    const zoneId = e.target.value;
-    setSelectedZone(zoneId);
-    setTimeSlots([]); // Reset time slots when zone changes
-    setSelectedTimeSlot(''); // Reset selected time slot
-
-    if (zoneId) {
-      try {
-        setLoading(true);
-        const response = await deliveryService.getTimeSlots(zoneId);
-        const slots = response?.availableSlots || [];
-        
-        if (Array.isArray(slots) && slots.length > 0) {
-          setTimeSlots(slots);
-          // Update delivery fee based on selected zone's delivery charge
-          const selectedZoneObj = availableZones?.find(zone => zone?._id === zoneId);
-          if (selectedZoneObj) {
-            updateDeliveryFee(selectedZoneObj.baseDeliveryFee || selectedZoneObj.deliveryCharge || 0);
-          }
-        } else {
-          setTimeSlots([]);
-          toast.warning('No delivery time slots available for this zone');
-        }
-      } catch (error) {
-        console.error('Error fetching time slots:', error);
-        toast.error('Failed to fetch time slots');
-        setTimeSlots([]);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Reset delivery fee if no zone selected
-      updateDeliveryFee(0);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!position || !location) {
@@ -443,7 +326,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     try {
       setLoading(true);
       setError(null);
-
+      
       // Now we check service area only when submitting
       const validationResponse = await restaurantService.validateLocation(
         position[0],
@@ -513,38 +396,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       toast.error('Failed to confirm delivery location');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchRestaurantsInRegion = async () => {
-    try {
-      const response = await restaurantService.getAllRestaurantsInRegion('MITHI');
-      if (response.success && Array.isArray(response.data)) {
-        setRestaurants(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching restaurants:', error);
-      toast.error('Failed to fetch restaurants in the area');
-    }
-  };
-
-  const handleSearchRestaurants = async (search) => {
-    if (!search.trim()) {
-      fetchRestaurantsInRegion();
-      return;
-    }
-
-    try {
-      setIsSearching(true);
-      const response = await restaurantService.searchRestaurantsInRegion(search, 'MITHI');
-      if (response.success && Array.isArray(response.data)) {
-        setRestaurants(response.data);
-      }
-    } catch (error) {
-      console.error('Error searching restaurants:', error);
-      toast.error('Failed to search restaurants');
-    } finally {
-      setIsSearching(false);
     }
   };
 
@@ -732,7 +583,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
                 <select
                   className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
                   value={selectedZone}
-                  onChange={handleZoneSelect}
+                  onChange={(e) => setSelectedZone(e.target.value)}
                   disabled={loading}
                 >
                   <option value="">Select Delivery Zone</option>

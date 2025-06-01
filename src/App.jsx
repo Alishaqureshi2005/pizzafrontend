@@ -20,14 +20,10 @@ import AdminOrders from './pages/AdminOrders';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminPrinter from './pages/AdminPrinter';
 import PizzaCustomization from './pages/PizzaCustomization';
-import Checkout from './pages/Checkout';
 import OrderTracking from './pages/OrderTracking';
 import AdminNavbar from './components/AdminNavbar';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-// import Header from './components/Header';
-// import Pickup from './components/pickup';
-// import Delivery from './components/Delivery';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -35,6 +31,9 @@ import 'leaflet/dist/leaflet.css';
 import OrderDetails from './pages/OrderDetails';
 import AdminDeliveryZones from './pages/AdminDeliveryZones';
 import RestaurantManagement from './pages/admin/RestaurantManagement';
+import Checkout from './pages/Checkout';
+import Orders from './pages/Orders';
+import OrderDetail from './pages/OrderDetail';
 
 const AppContent = () => {
   const location = useLocation();
@@ -58,9 +57,11 @@ const AppContent = () => {
             <Route path="/order" element={<Order />} />
             <Route path="/order-history" element={<OrderHistory />} />
             <Route path="/pizza-customization/:id" element={<PizzaCustomization />} />
-            <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
           </Route>
 
           {/* Admin Routes */}

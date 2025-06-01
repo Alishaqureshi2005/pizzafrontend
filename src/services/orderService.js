@@ -1,76 +1,68 @@
-import api from './api';
+import axios from 'axios';
+import { API_URL } from '../config';
 
-class OrderService {
-  async createOrder(orderData) {
+const orderService = {
+  // Create a new order
+  createOrder: async (orderData) => {
     try {
-      const response = await api.post('/orders', orderData);
+      const response = await axios.post(`${API_URL}/api/orders`, orderData);
       return response.data;
     } catch (error) {
-      console.error('Error creating order:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to create order' };
     }
-  }
+  },
 
-  async getUserOrders(params = {}) {
+  // Get user's orders
+  getUserOrders: async (filters = {}) => {
     try {
-      const { status, sortBy, sortOrder } = params;
-      const queryParams = new URLSearchParams();
-      
-      if (status) queryParams.append('status', status);
-      if (sortBy) queryParams.append('sortBy', sortBy);
-      if (sortOrder) queryParams.append('sortOrder', sortOrder);
-      
-      const url = `/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const response = await api.get(url);
+      const response = await axios.get(`${API_URL}/api/orders`, { params: filters });
       return response.data;
     } catch (error) {
-      console.error('Error fetching user orders:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to fetch orders' };
     }
-  }
+  },
 
-  async getOrder(orderId) {
+  // Get single order
+  getOrder: async (orderId) => {
     try {
-      const response = await api.get(`/orders/${orderId}`);
+      const response = await axios.get(`${API_URL}/api/orders/${orderId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching order:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to fetch order' };
     }
-  }
+  },
 
-  async updateOrderStatus(orderId, status) {
+  // Update order status (admin only)
+  updateOrderStatus: async (orderId, status) => {
     try {
-      const response = await api.put(`/orders/${orderId}/status`, { status });
+      const response = await axios.put(`${API_URL}/api/orders/${orderId}/status`, { status });
       return response.data;
     } catch (error) {
-      console.error('Error updating order status:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to update order status' };
     }
-  }
+  },
 
-  async deleteOrder(orderId) {
+  // Delete order
+  deleteOrder: async (orderId) => {
     try {
-      const response = await api.delete(`/orders/${orderId}`);
+      const response = await axios.delete(`${API_URL}/api/orders/${orderId}`);
       return response.data;
     } catch (error) {
-      console.error('Error deleting order:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to delete order' };
     }
-  }
+  },
 
   // Admin methods
-  async getAllOrders() {
+  getAllOrders: async () => {
     try {
-      const response = await api.get('/orders/admin/orders');
+      const response = await axios.get(`${API_URL}/api/orders/admin/orders`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching all orders:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to fetch all orders' };
     }
-  }
+  },
 
-  async getOrdersByUserId(userId, params = {}) {
+  getOrdersByUserId: async (userId, params = {}) => {
     try {
       const { status, startDate, endDate } = params;
       const queryParams = new URLSearchParams();
@@ -79,58 +71,80 @@ class OrderService {
       if (startDate) queryParams.append('startDate', startDate);
       if (endDate) queryParams.append('endDate', endDate);
       
-      const url = `/orders/user/${userId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const response = await api.get(url);
+      const response = await axios.get(`${API_URL}/api/orders/user/${userId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching orders by user:', error);
-      throw error;
+      throw error.response?.data || { success: false, message: 'Failed to fetch orders by user' };
     }
-  }
+  },
 
   // Get order history (alias for getUserOrders with filters)
-  async getOrderHistory(filters = {}) {
-    const response = await api.get('/orders', { params: filters });
-    return response.data;
-  }
+  getOrderHistory: async (filters = {}) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/orders`, { params: filters });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch order history' };
+    }
+  },
 
   // Get order tracking details
-  async getOrderTracking(orderId) {
-    const response = await api.get(`/orders/${orderId}/tracking`);
-    return response.data;
-  }
+  getOrderTracking: async (orderId) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/orders/${orderId}/tracking`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch order tracking details' };
+    }
+  },
 
   // Rate order
-  async rateOrder(orderId, rating) {
-    const response = await api.post(`/orders/${orderId}/rate`, { rating });
-    return response.data;
-  }
+  rateOrder: async (orderId, rating) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/orders/${orderId}/rate`, { rating });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to rate order' };
+    }
+  },
 
   // Get delivery zones
-  async getDeliveryZones() {
-    const response = await api.get('/delivery-zones');
-    console.log('Delivery zones:', response);
-    return response.data;
-  }
+  getDeliveryZones: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/delivery-zones`);
+      console.log('Delivery zones:', response);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch delivery zones' };
+    }
+  },
 
   // Check delivery availability
-  async checkDeliveryAvailability(address) {
-    const response = await api.post('/delivery-zones/check', { address });
-    return response.data;
-  }
+  checkDeliveryAvailability: async (address) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/delivery-zones/check`, { address });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to check delivery availability' };
+    }
+  },
 
   // Get available time slots
-  async getTimeSlots(zoneId, date) {
-    const response = await api.get(`/delivery-zones/${zoneId}/time-slots`, {
-      params: { date }
-    });
-    return response.data;
-  }
+  getTimeSlots: async (zoneId, date) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/delivery-zones/${zoneId}/time-slots`, {
+        params: { date }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { success: false, message: 'Failed to fetch time slots' };
+    }
+  },
 
   // Get nearest delivery zone
-  async getNearestDeliveryZone(coordinates) {
+  getNearestDeliveryZone: async (coordinates) => {
     try {
-      const response = await api.get(`/delivery-zones/nearest`, {
+      const response = await axios.get(`${API_URL}/api/delivery-zones/nearest`, {
         params: {
           latitude: coordinates.latitude,
           longitude: coordinates.longitude
@@ -142,6 +156,6 @@ class OrderService {
       return null;
     }
   }
-}
+};
 
-export const orderService = new OrderService();
+export { orderService };
