@@ -120,6 +120,84 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// Helper function to determine region bounds from restaurant locations
+const calculateRegionBounds = (restaurants) => {
+  if (!restaurants || restaurants.length === 0) {
+    return null;
+  }
+
+  const bounds = {
+    north: -90,
+    south: 90,
+    east: -180,
+    west: 180
+  };
+
+  restaurants.forEach(restaurant => {
+    if (restaurant.location) {
+      const { latitude, longitude } = restaurant.location;
+      bounds.north = Math.max(bounds.north, latitude);
+      bounds.south = Math.min(bounds.south, latitude);
+      bounds.east = Math.max(bounds.east, longitude);
+      bounds.west = Math.min(bounds.west, longitude);
+    }
+  });
+
+  // Add some padding to the bounds
+  const padding = 0.1; // 0.1 degrees padding
+  return {
+    north: bounds.north + padding,
+    south: bounds.south - padding,
+    east: bounds.east + padding,
+    west: bounds.west - padding,
+    center: {
+      latitude: (bounds.north + bounds.south) / 2,
+      longitude: (bounds.east + bounds.west) / 2
+    }
+  };
+};
+
+// Helper function to group restaurants by city
+const groupRestaurantsByCity = (restaurants) => {
+  const cities = {};
+  
+  restaurants.forEach(restaurant => {
+    if (restaurant.location && restaurant.city) {
+      if (!cities[restaurant.city]) {
+        cities[restaurant.city] = {
+          name: restaurant.city,
+          restaurants: [],
+          bounds: {
+            north: -90,
+            south: 90,
+            east: -180,
+            west: 180
+          }
+        };
+      }
+      
+      cities[restaurant.city].restaurants.push(restaurant);
+      
+      // Update city bounds
+      const { latitude, longitude } = restaurant.location;
+      cities[restaurant.city].bounds.north = Math.max(cities[restaurant.city].bounds.north, latitude);
+      cities[restaurant.city].bounds.south = Math.min(cities[restaurant.city].bounds.south, latitude);
+      cities[restaurant.city].bounds.east = Math.max(cities[restaurant.city].bounds.east, longitude);
+      cities[restaurant.city].bounds.west = Math.min(cities[restaurant.city].bounds.west, longitude);
+    }
+  });
+
+  // Calculate center points for each city
+  Object.values(cities).forEach(city => {
+    city.center = {
+      latitude: (city.bounds.north + city.bounds.south) / 2,
+      longitude: (city.bounds.east + city.bounds.west) / 2
+    };
+  });
+
+  return cities;
+};
+
 const restaurantService = {
   // Get all active restaurants (for customers)
   getRestaurants: async () => {
@@ -476,7 +554,131 @@ const restaurantService = {
       console.error('Error generating time slots:', error);
       handleApiError(error);
     }
-  }
+  },
+
+  // Get all restaurants and determine regions
+  getAllRestaurantsWithRegions: async () => {
+    try {
+      const response = await api.get('/restaurants', {
+        headers: getAuthHeaders(),
+        params: {
+          includeCoordinates: true
+        }
+      });
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const restaurants = response.data.data;
+        
+        // Group restaurants by city
+        const cities = groupRestaurantsByCity(restaurants);
+        
+        // Calculate overall region bounds
+        const regionBounds = calculateRegionBounds(restaurants);
+
+        return {
+          ...response.data,
+          regions: {
+            cities,
+            overall: regionBounds
+          }
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching restaurants with regions:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Get restaurants by city
+  getRestaurantsByCity: async (cityName) => {
+    try {
+      const response = await api.get('/restaurants', {
+        headers: getAuthHeaders(),
+        params: {
+          city: cityName,
+          includeCoordinates: true
+        }
+      });
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const restaurants = response.data.data;
+        const cityBounds = calculateRegionBounds(restaurants);
+
+        return {
+          ...response.data,
+          region: {
+            name: cityName,
+            bounds: cityBounds,
+            center: cityBounds.center
+          }
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching restaurants by city:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Find nearest restaurant with city information
+  findNearestRestaurant: async (latitude, longitude) => {
+    try {
+      const response = await api.get('/restaurants/nearby', {
+        headers: getAuthHeaders(),
+        params: {
+          latitude,
+          longitude,
+          includeCoordinates: true
+        }
+      });
+
+      if (response.data.success && response.data.data) {
+        const restaurant = response.data.data;
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          restaurant.location.latitude,
+          restaurant.location.longitude
+        );
+
+        return {
+          ...response.data,
+          data: {
+            ...restaurant,
+            distance: distance.toFixed(2),
+            city: restaurant.city,
+            isWithinServiceArea: distance <= restaurant.serviceRadius
+          }
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error finding nearest restaurant:', error);
+      handleApiError(error);
+    }
+  },
+
+  // Validate location is within any service area
+  validateLocation: async (latitude, longitude) => {
+    try {
+      const response = await api.get('/restaurants/validate-location', {
+        headers: getAuthHeaders(),
+        params: {
+          latitude,
+          longitude
+        }
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error validating location:', error);
+      handleApiError(error);
+    }
+  },
 };
 
 export default restaurantService; 

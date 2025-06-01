@@ -85,32 +85,57 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
   const [restaurants, setRestaurants] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [regions, setRegions] = useState(null);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [availableCities, setAvailableCities] = useState([]);
 
   useEffect(() => {
-    fetchDeliveryZones();
-    // Get region information and restaurants
-    const mithiRegion = restaurantService.getRegionInfo('MITHI');
-    setRegionInfo(mithiRegion);
-    setInitialMapCenter([mithiRegion.center.latitude, mithiRegion.center.longitude]);
-    
-    // Fetch all restaurants in the region
-    fetchRestaurantsInRegion();
-    
+    fetchRegionsAndRestaurants();
     // Try to get user's location on component mount
     requestLocation();
   }, []);
 
-  // Add effect to handle initial address
-  useEffect(() => {
-    if (initialAddress) {
-      geocodeAddress(initialAddress).then(coordinates => {
-        if (coordinates) {
-          setPosition([coordinates.latitude, coordinates.longitude]);
-          setLocation(initialAddress);
+  const fetchRegionsAndRestaurants = async () => {
+    try {
+      const response = await restaurantService.getAllRestaurantsWithRegions();
+      if (response.success && response.regions) {
+        setRegions(response.regions);
+        setAvailableCities(Object.values(response.regions.cities));
+        
+        // Set initial map center to overall region center
+        if (response.regions.overall?.center) {
+          setInitialMapCenter([
+            response.regions.overall.center.latitude,
+            response.regions.overall.center.longitude
+          ]);
         }
-      });
+      }
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+      toast.error('Failed to fetch restaurant regions');
     }
-  }, [initialAddress]);
+  };
+
+  const handleCitySelect = async (cityName) => {
+    try {
+      const response = await restaurantService.getRestaurantsByCity(cityName);
+      if (response.success && response.region) {
+        setSelectedCity(response.region);
+        setRestaurants(response.data);
+        
+        // Update map center to city center
+        if (response.region.center) {
+          setInitialMapCenter([
+            response.region.center.latitude,
+            response.region.center.longitude
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching city restaurants:', error);
+      toast.error('Failed to fetch restaurants for selected city');
+    }
+  };
 
   const requestLocation = () => {
     if (navigator.geolocation) {
@@ -120,9 +145,14 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
           try {
             const newPosition = [position.coords.latitude, position.coords.longitude];
             
-            // Validate if the location is within the Mithi region
-            if (!restaurantService.validateRestaurantLocation(position.coords.latitude, position.coords.longitude)) {
-              toast.error('Your current location is outside our service area. Please enter an address in the Mithi region.');
+            // Validate if the location is within any service area
+            const validationResponse = await restaurantService.validateLocation(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+
+            if (!validationResponse.success) {
+              toast.error('Your current location is outside our service areas. Please enter an address in a supported city.');
               setLocationPermissionDenied(true);
               return;
             }
@@ -492,6 +522,24 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 w-[600px] shadow-lg max-h-[90vh] overflow-auto">
           <h2 className="text-xl font-semibold mb-4">Select Your Location</h2>
+
+          {/* City Selection */}
+          <div className="mb-4">
+            <label className="block mb-2 font-semibold">Select City</label>
+            <select
+              className="w-full border border-gray-300 rounded px-3 py-2"
+              value={selectedCity?.name || ''}
+              onChange={(e) => handleCitySelect(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">Select a city</option>
+              {availableCities.map((city) => (
+                <option key={city.name} value={city.name}>
+                  {city.name} ({city.restaurants.length} restaurants)
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Order Type Selection */}
           <div className="mb-4">
