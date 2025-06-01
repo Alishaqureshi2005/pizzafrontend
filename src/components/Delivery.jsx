@@ -316,11 +316,37 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     const newAddress = e.target.value;
     setLocation(newAddress);
     
-    // Geocode the address when it changes
+    // Only geocode the address without any service area validation
     if (newAddress) {
-      const coordinates = await geocodeAddress(newAddress);
-      if (coordinates) {
-        setPosition([coordinates.latitude, coordinates.longitude]);
+      try {
+        const searchQuery = newAddress.includes(initialCity) 
+          ? newAddress 
+          : `${newAddress}, ${initialCity}, Pakistan`;
+        
+        const encodedAddress = encodeURIComponent(searchQuery);
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `format=json&q=${encodedAddress}&` +
+          `countrycodes=pk&` +
+          `limit=1&` +
+          `addressdetails=1`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to connect to geocoding service');
+        }
+
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const result = data[0];
+          const coordinates = {
+            latitude: parseFloat(result.lat),
+            longitude: parseFloat(result.lon)
+          };
+          setPosition([coordinates.latitude, coordinates.longitude]);
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error);
       }
     }
   };
@@ -329,7 +355,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     try {
       console.log('Geocoding address:', address);
       
-      // Add city to the search query if not already included
       const searchQuery = address.includes(initialCity) 
         ? address 
         : `${address}, ${initialCity}, Pakistan`;
@@ -337,13 +362,12 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       console.log('Search query:', searchQuery);
       const encodedAddress = encodeURIComponent(searchQuery);
       
-      // Add additional parameters to improve search accuracy
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?` +
         `format=json&q=${encodedAddress}&` +
-        `countrycodes=pk&` + // Limit to Pakistan
+        `countrycodes=pk&` +
         `limit=1&` +
-        `addressdetails=1` // Get detailed address information
+        `addressdetails=1`
       );
 
       if (!response.ok) {
@@ -364,19 +388,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         longitude: parseFloat(result.lon)
       };
       console.log('Geocoded coordinates:', coordinates);
-
-      // Find nearest restaurant without validating service area
-      console.log('Finding nearest restaurant...');
-      const nearestRestaurantResponse = await restaurantService.findNearestRestaurant(
-        coordinates.latitude,
-        coordinates.longitude
-      );
-      console.log('Nearest restaurant response:', nearestRestaurantResponse);
-
-      if (nearestRestaurantResponse.success && nearestRestaurantResponse.data) {
-        setNearestRestaurant(nearestRestaurantResponse.data);
-        toast.info(`Nearest restaurant: ${nearestRestaurantResponse.data.name} (${nearestRestaurantResponse.data.distance} km away)`);
-      }
 
       return coordinates;
     } catch (error) {
@@ -430,11 +441,19 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
     }
 
     try {
-    setLoading(true);
-    setError(null);
-    
-      // Log the position for debugging
-      console.log('Checking delivery availability for position:', position);
+      setLoading(true);
+      setError(null);
+
+      // Now we check service area only when submitting
+      const validationResponse = await restaurantService.validateLocation(
+        position[0],
+        position[1]
+      );
+
+      if (!validationResponse.success) {
+        toast.error('This location is outside our service areas. Please select a different address.');
+        return;
+      }
 
       // Check delivery availability
       const availabilityResponse = await deliveryService.checkAvailability({
@@ -444,7 +463,7 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
       });
 
       console.log('Delivery availability response:', availabilityResponse);
-      
+
       if (!availabilityResponse.success) {
         // Try to find the nearest zone
         const nearestZone = await deliveryService.getNearestDeliveryZone({
@@ -454,7 +473,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
 
         if (nearestZone) {
           console.log('Found nearest zone:', nearestZone);
-          // Prepare delivery details with nearest zone
           const deliveryDetails = {
             address: location,
             coordinates: {
@@ -466,7 +484,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
             isOutOfZone: true
           };
 
-          // Call onConfirm with the delivery details
           onConfirm(deliveryDetails);
           toast.warning('Location is outside regular delivery zones. Additional delivery charges may apply.');
           return;
@@ -476,7 +493,6 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         return;
       }
 
-      // Prepare delivery details
       const deliveryDetails = {
         address: location,
         coordinates: {
@@ -486,14 +502,11 @@ const Delivery = ({ onConfirm, initialAddress, initialCity, initialZipCode }) =>
         zone: availabilityResponse.data.zone,
         timeSlot: selectedTimeSlot,
         isOutOfZone: false
-        };
+      };
 
       console.log('Submitting delivery details:', deliveryDetails);
-
-      // Call onConfirm with the delivery details
       onConfirm(deliveryDetails);
-      
-        toast.success('Delivery location confirmed!');
+      toast.success('Delivery location confirmed!');
     } catch (error) {
       console.error('Error confirming delivery location:', error);
       setError('Failed to confirm delivery location. Please try again.');
