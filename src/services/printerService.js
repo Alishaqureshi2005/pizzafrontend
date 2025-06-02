@@ -3,19 +3,33 @@ import { printerApi } from './adminApi';
 class PrinterService {
   constructor() {
     this.printerSettings = null;
-    this.loadSettings();
+    this.isLoading = false;
   }
 
   async loadSettings() {
+    if (this.isLoading) return;
+    
+    this.isLoading = true;
     try {
       const response = await printerApi.getPrinterSettings();
       this.printerSettings = response.data.data;
     } catch (error) {
       console.error('Error loading printer settings:', error);
+      this.printerSettings = null;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async ensureSettingsLoaded() {
+    if (!this.printerSettings && !this.isLoading) {
+      await this.loadSettings();
     }
   }
 
   async printOrder(order) {
+    await this.ensureSettingsLoaded();
+    
     if (!this.printerSettings?.isEnabled) {
       console.log('Printer is disabled');
       return;

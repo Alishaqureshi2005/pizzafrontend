@@ -59,34 +59,27 @@ const Cart = () => {
         return;
       }
 
-      // Refresh the cart data before proceeding
-      const cartData = await dispatch(fetchCart()).unwrap();
-      if (!cartData || !cartData.data || !cartData.data.items || cartData.data.items.length === 0) {
-        toast.error('Failed to fetch cart data');
-        return;
-      }
-
-      // Navigate to order page
-      navigate('/order', {
+      // Navigate to checkout page with cart data
+      navigate('/checkout', {
         state: {
-          cartData: {
-            items: cartData.data.items.map(item => ({
-              ...item,
-              price: parseFloat(item.price) || 0,
-              quantity: parseInt(item.quantity) || 1
-            })),
-            cartId: cartData.data._id,
-            total: cartTotal,
-            subtotal: cartTotal,
-            deliveryFee: deliveryFee,
-            itemCount: cartData.data.items.length,
-            user: cartData.data.user
-          }
+          cartItems: items.map(item => ({
+            id: item._id || item.id,
+            name: item.name || item.product?.name,
+            price: parseFloat(item.price) || 0,
+            quantity: parseInt(item.quantity) || 1,
+            size: item.size,
+            toppings: item.toppings,
+            specialInstructions: item.specialInstructions
+          })),
+          total: cartTotal,
+          deliveryFee: deliveryFee || 0,
+          subtotal: cartTotal,
+          itemCount: items.length
         }
       });
     } catch (error) {
-      console.error('Error proceeding to order:', error);
-      toast.error('Failed to proceed to order. Please try again.');
+      console.error('Error proceeding to checkout:', error);
+      toast.error('Failed to proceed to checkout. Please try again.');
     }
   };
 

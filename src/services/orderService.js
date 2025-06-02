@@ -1,121 +1,203 @@
 import axios from 'axios';
+import { handleApiError } from '../utils/errorHandler';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const orderService = {
   // Create a new order
   createOrder: async (orderData) => {
     try {
-      const response = await axios.post(`${API_URL}/orders`, orderData);
+      const response = await axios.post(`${API_URL}/orders`, orderData, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error creating order' };
+      throw handleApiError(error);
     }
   },
 
   // Get user's orders
-  getUserOrders: async (filters = {}) => {
+  getUserOrders: async () => {
     try {
-      const response = await axios.get(`${API_URL}/orders`, { params: filters });
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error fetching orders' };
+      throw handleApiError(error);
     }
   },
 
   // Get single order
   getOrder: async (orderId) => {
     try {
-      const response = await axios.get(`${API_URL}/orders/${orderId}`);
+      const response = await axios.get(`${API_URL}/orders/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error fetching order' };
+      throw handleApiError(error);
     }
   },
 
   // Update order status (Admin only)
   updateOrderStatus: async (orderId, status) => {
     try {
-      const response = await axios.put(`${API_URL}/orders/${orderId}/status`, { status });
+      const response = await axios.put(`${API_URL}/orders/${orderId}/status`, { status }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error updating order status' };
+      throw handleApiError(error);
     }
   },
 
   // Delete order
   deleteOrder: async (orderId) => {
     try {
-      const response = await axios.delete(`${API_URL}/orders/${orderId}`);
+      const response = await axios.delete(`${API_URL}/orders/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error deleting order' };
+      throw handleApiError(error);
     }
   },
 
   // Get all orders (Admin only)
   getAllOrders: async (filters = {}) => {
     try {
-      const response = await axios.get(`${API_URL}/admin/orders`, { params: filters });
+      const response = await axios.get(`${API_URL}/admin/orders`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: filters
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error fetching all orders' };
+      throw handleApiError(error);
     }
   },
 
   // Get orders by user ID (Admin only)
   getOrdersByUserId: async (userId, filters = {}) => {
     try {
-      const response = await axios.get(`${API_URL}/orders/user/${userId}`, { params: filters });
+      const response = await axios.get(`${API_URL}/orders/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: filters
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || { success: false, message: 'Error fetching user orders' };
+      throw handleApiError(error);
     }
   },
 
   // Get order history (alias for getUserOrders with filters)
   getOrderHistory: async (filters = {}) => {
-    const response = await axios.get(`${API_URL}/orders`, { params: filters });
-    return response.data;
+    try {
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Get order tracking details
   getOrderTracking: async (orderId) => {
-    const response = await axios.get(`${API_URL}/orders/${orderId}/tracking`);
-    return response.data;
+    try {
+      const response = await axios.get(`${API_URL}/orders/${orderId}/tracking`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Rate order
   rateOrder: async (orderId, rating) => {
-    const response = await axios.post(`${API_URL}/orders/${orderId}/rate`, { rating });
-    return response.data;
+    try {
+      const response = await axios.post(`${API_URL}/orders/${orderId}/rate`, { rating }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Get delivery zones
   getDeliveryZones: async () => {
-    const response = await axios.get(`${API_URL}/delivery-zones`);
-    console.log('Delivery zones:', response);
-    return response.data;
+    try {
+      const response = await axios.get(`${API_URL}/delivery-zones`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Check delivery availability
   checkDeliveryAvailability: async (address) => {
-    const response = await axios.post(`${API_URL}/delivery-zones/check`, { address });
-    return response.data;
+    try {
+      const response = await axios.post(`${API_URL}/delivery-zones/check`, { address }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Get available time slots
   getTimeSlots: async (zoneId, date) => {
-    const response = await axios.get(`${API_URL}/delivery-zones/${zoneId}/time-slots`, {
-      params: { date }
-    });
-    return response.data;
+    try {
+      const response = await axios.get(`${API_URL}/delivery-zones/${zoneId}/time-slots`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        params: { date }
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // Get nearest delivery zone
   getNearestDeliveryZone: async (coordinates) => {
     try {
       const response = await axios.get(`${API_URL}/delivery-zones/nearest`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         params: {
           latitude: coordinates.latitude,
           longitude: coordinates.longitude

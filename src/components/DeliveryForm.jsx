@@ -33,7 +33,7 @@ const DeliveryForm = ({ onDeliveryDetailsChange, availableTimeSlots, deliveryDet
   const [position, setPosition] = useState(null);
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [initialMapCenter, setInitialMapCenter] = useState([24.7337, 69.7967]); // Default coordinates
+  const [initialMapCenter, setInitialMapCenter] = useState(null);
 
   useEffect(() => {
     requestLocation();
@@ -160,22 +160,24 @@ const DeliveryForm = ({ onDeliveryDetailsChange, availableTimeSlots, deliveryDet
       </div>
 
       <div className="h-[300px] relative">
-        <MapContainer
-          center={initialMapCenter}
-          zoom={13}
-          scrollWheelZoom={true}
-          className="h-full w-full rounded"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <LocationMarker 
-            position={position} 
-            setPosition={setPosition}
-            setLocation={setLocation}
-          />
-        </MapContainer>
+        {initialMapCenter && (
+          <MapContainer
+            center={initialMapCenter}
+            zoom={13}
+            scrollWheelZoom={true}
+            className="h-full w-full rounded"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <LocationMarker 
+              position={position} 
+              setPosition={setPosition}
+              setLocation={setLocation}
+            />
+          </MapContainer>
+        )}
       </div>
 
       {deliveryDetails.zone && (

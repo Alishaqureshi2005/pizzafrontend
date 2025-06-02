@@ -33,8 +33,6 @@ import AdminDeliveryZones from './pages/AdminDeliveryZones';
 import RestaurantManagement from './pages/admin/RestaurantManagement';
 import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
-import PrivateRoute from './components/PrivateRoute';
-import Profile from './pages/Profile';
 
 const AppContent = () => {
   const location = useLocation();
@@ -60,6 +58,9 @@ const AppContent = () => {
             <Route path="/pizza-customization/:id" element={<PizzaCustomization />} />
             <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/orders/:id" element={<OrderDetails />} />
           </Route>
 
           {/* Admin Routes */}
@@ -71,14 +72,6 @@ const AppContent = () => {
             <Route path="/admin/restaurants" element={<RestaurantManagement />} />
             <Route path="/admin/*" element={<AdminPanel />} />
             <Route path="/admin/orders/:orderId" element={<OrderDetails />} />
-          </Route>
-
-          {/* Private Routes */}
-          <Route element={<PrivateRoute />}>
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/orders/:id" element={<OrderDetails />} />
-            <Route path="/profile" element={<Profile />} />
           </Route>
         </Routes>
       </main>
