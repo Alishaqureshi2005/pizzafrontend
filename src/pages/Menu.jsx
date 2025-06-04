@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaFilter, FaShoppingCart, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { productService } from '../services/productService';
 import { useNavigate } from 'react-router-dom';
@@ -10,80 +10,57 @@ const Menu = () => {
   const [menuData, setMenuData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPizza, setSelectedPizza] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
-  const [extraItems, setExtraItems] = useState([]);
-  const [toppings, setToppings] = useState([]);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch menu items
-        const menuResponse = await productService.getAllProducts();
-        console.log('Menu Response:', menuResponse);
+    fetchProducts();
+  }, [activeCategory]);
 
-        if (menuResponse?.success && Array.isArray(menuResponse.data)) {
-          // Extract categories and their items
-          const categoriesWithItems = menuResponse.data.map(category => ({
-            _id: category._id,
-            name: category.name,
-            description: category.description,
-            items: category.items || []
-          }));
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await productService.getAllProducts();
+      console.log('Fetched categories:', data);
 
-          // Set categories for the filter buttons
-          setCategories(categoriesWithItems);
-
-          // Flatten all items for display
-          const allItems = categoriesWithItems.reduce((acc, category) => {
-            return acc.concat(category.items.map(item => ({
-              ...item,
-              categoryId: category._id,
-              categoryName: category.name
-            })));
-          }, []);
-
-          console.log('Processed Menu Items:', allItems);
-          setMenuData(allItems);
-        } else {
-          console.error('Invalid menu response format:', menuResponse);
-          toast.error('Failed to load menu data');
-          setMenuData([]);
-        }
-
-        // Only fetch these if user is logged in
-        const token = localStorage.getItem('token');
-        if (token) {
-          const [extraItemsResponse, toppingsResponse] = await Promise.all([
-            productService.getExtraItems(),
-            productService.getAllToppings()
-          ]);
-
-        if (extraItemsResponse?.success) {
-            setExtraItems(extraItemsResponse.data || []);
-        }
-
-        if (toppingsResponse?.success && Array.isArray(toppingsResponse.data)) {
-          setToppings(toppingsResponse.data);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        toast.error('Failed to load menu data');
-        setMenuData([]);
-      } finally {
-        setLoading(false);
+      // Ensure we have valid data
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid data format received from server');
       }
-    };
 
-    fetchData();
-  }, []);
+      // Filter out categories with no items
+      const validCategories = data.filter(category => 
+        category && 
+        Array.isArray(category.items) && 
+        category.items.length > 0
+      );
 
-  const handleAddToCart = async (item) => {
+      console.log('Valid categories:', validCategories);
+      setCategories(validCategories);
+
+      // Flatten all items for display
+      const allItems = validCategories.reduce((acc, category) => {
+        const categoryItems = category.items.map(item => ({
+          ...item,
+          categoryName: category.name,
+          categoryId: category._id
+        }));
+        return [...acc, ...categoryItems];
+      }, []);
+
+      console.log('All items:', allItems);
+      setMenuData(allItems);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError(err.message || 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToCart = (item) => {
     const token = localStorage.getItem('token');
     
     if (!token) {
@@ -92,43 +69,20 @@ const Menu = () => {
       return;
     }
 
-    setSelectedPizza(item);
-    setShowCustomizationModal(true);
-  };
-
-  const handleSizeSelect = (size) => {
-    setSelectedSize(size);
-  };
-
-  const handleCustomizationConfirm = () => {
-    if (!selectedSize) {
-      toast.warning('Please select a size before proceeding');
-      return;
-    }
-
-    // Get the customization data from the selected pizza
-    const customization = selectedPizza?.customization || {
-      sizes: [],
-      crusts: [],
-      maxToppings: 5,
-      maxExtraItems: 3
-    };
-
-    navigate(`/pizza-customization/${selectedPizza._id}`, {
+    // Direct navigation to customization page
+    navigate(`/pizza-customization/${item._id}`, {
       state: {
-        selectedSize,
         pizza: {
-          ...selectedPizza,
-          customization
+          ...item,
+          customization: item.customization || {
+            sizes: [],
+            crusts: [],
+            maxToppings: 5,
+            maxExtraItems: 3
+          }
         }
       }
     });
-  };
-
-  const handleCustomizationCancel = () => {
-    setShowCustomizationModal(false);
-    setSelectedPizza(null);
-    setSelectedSize(null);
   };
 
   // Filter items based on search query and category
@@ -143,7 +97,34 @@ const Menu = () => {
   });
 
   if (loading) {
-    return <div className="text-center py-8">Loading menu...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">Loading Menu...</h1>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-red-600 mb-4">Error Loading Menu</h1>
+            <p className="text-gray-600 mb-8">{error}</p>
+            <button
+              onClick={fetchProducts}
+              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -224,7 +205,7 @@ const Menu = () => {
                   }}
                 />
                 <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full">
-                  ${(item.basePrice || 0).toFixed(2)}
+                  €{(item.basePrice || 0).toFixed(2)}
                 </div>
               </div>
               <div className="p-6">
@@ -237,7 +218,7 @@ const Menu = () => {
                     <div className="flex flex-wrap gap-2 mt-1">
                       {item.customization.sizes.map(size => (
                         <span key={size._id || size.name} className="text-sm bg-gray-100 px-2 py-1 rounded">
-                          {size.name}: ${((item.basePrice || 0) * (size.priceMultiplier || 1)).toFixed(2)}
+                          {size.name}: €{((item.basePrice || 0) * (size.priceMultiplier || 1)).toFixed(2)}
                         </span>
                       ))}
                     </div>
@@ -258,105 +239,19 @@ const Menu = () => {
         {/* Empty State */}
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">No items found matching your criteria.</p>
-          </div>
-        )}
-
-        {/* Customization Modal */}
-        {showCustomizationModal && selectedPizza && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-800">{selectedPizza.name}</h3>
-                  <p className="text-gray-600 mt-1">{selectedPizza.description}</p>
-                </div>
-                <button
-                  onClick={handleCustomizationCancel}
-                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <FaTimes size={20} />
-                </button>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Left Column - Pizza Image and Size Selection */}
-                <div>
-                  <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg">
-                    <img
-                      src={selectedPizza.image || '/images/placeholder.jpg'}
-                      alt={selectedPizza.name}
-                      className="w-full h-64 object-cover"
-                      onError={(e) => {
-                        e.target.src = '/images/placeholder.jpg';
-                      }}
-                    />
-                  </div>
-
-                  {/* Size Selection */}
-                  {selectedPizza.customization?.sizes && selectedPizza.customization.sizes.length > 0 && (
-                    <div className="bg-gray-50 p-6 rounded-xl mb-6">
-                      <h4 className="font-semibold text-gray-800 mb-4">Choose Your Size</h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        {selectedPizza.customization.sizes.map((size) => (
-                          <button
-                            key={size._id || size.name}
-                            onClick={() => handleSizeSelect(size)}
-                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                              selectedSize?._id === size._id
-                                ? 'border-red-500 bg-red-50 shadow-md'
-                                : 'border-gray-200 hover:border-red-300'
-                            }`}
-                          >
-                            <div className="text-lg font-medium">{size.name}</div>
-                            <div className="text-red-600 font-semibold mt-1">
-                              ${((selectedPizza.basePrice || 0) * (size.priceMultiplier || 1)).toFixed(2)}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Base Price Info */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Base Price:</span>
-                      <span className="text-lg font-semibold text-red-600">
-                        ${(selectedPizza.basePrice || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Action Buttons */}
-                <div className="flex flex-col gap-4">
-                  <button
-                    onClick={handleCustomizationCancel}
-                    className="px-6 py-3 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCustomizationConfirm}
-                    disabled={!selectedSize && selectedPizza.customization?.sizes?.length > 0}
-                    className={`px-6 py-3 rounded-xl font-medium transition-colors ${
-                      selectedSize || !selectedPizza.customization?.sizes?.length
-                        ? 'bg-red-600 text-white hover:bg-red-700'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {selectedPizza.customization?.sizes?.length > 0 
-                      ? selectedSize 
-                        ? 'Proceed to Customization' 
-                        : 'Select a Size'
-                      : 'Add to Cart'
-                    }
-                  </button>
-                </div>
-              </div>
-            </div>
+            <p className="text-gray-600 text-lg">
+              {loading ? 'Loading menu items...' : 
+               error ? 'Error loading menu items. Please try again.' :
+               'No items found in this category. Please check back later.'}
+            </p>
+            {error && (
+              <button
+                onClick={fetchProducts}
+                className="mt-4 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -1,28 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { orderApi } from '../services/adminApi';
+import { orderService } from '../services/orderService';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-import { FaTrash } from 'react-icons/fa';
+import { FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 
 const Order = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
   
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await orderApi.getUserOrders();
-      if (response?.data?.success && Array.isArray(response.data.data)) {
-        setOrders(response.data.data);
-      } else {
-        setOrders([]);
-        setError('Unexpected data format from server.');
+      setError(null);
+      const data = await orderService.getUserOrders();
+      if (!data) {
+        throw new Error('No data received from server');
       }
+      setOrders(data);
     } catch (err) {
       console.error('Error fetching user orders:', err);
-      setError(err.message || 'Failed to load orders.');
+      setError(err.message || 'Failed to load orders');
+      toast.error(err.message || 'Failed to load orders');
     } finally {
       setLoading(false);
     }
@@ -30,20 +31,25 @@ const Order = () => {
   
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to delete this order?')) {
+      return;
+    }
+
     try {
-      const response = await orderApi.deleteOrder(orderId);
-      if (response?.data?.success) {
-        toast.success('Order deleted successfully');
-        // Refresh orders list
-        fetchOrders();
-      } else {
-        toast.error('Failed to delete order');
-      }
+      await orderService.deleteOrder(orderId);
+      toast.success('Order deleted successfully');
+      // Refresh orders list
+      fetchOrders();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete order');
+      console.error('Error deleting order:', error);
+      toast.error(error.message || 'Failed to delete order');
     }
   };
 
@@ -67,6 +73,7 @@ const Order = () => {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="container mx-auto px-4">
           <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <h1 className="text-3xl font-bold text-gray-800 mb-4">Loading Orders...</h1>
           </div>
         </div>
@@ -79,14 +86,23 @@ const Order = () => {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="container mx-auto px-4">
           <div className="text-center">
+            <FaExclamationTriangle className="text-red-500 text-5xl mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-red-600 mb-4">Error Loading Orders</h1>
             <p className="text-gray-600 mb-8">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Try Again
-            </button>
+            <div className="space-x-4">
+              <button
+                onClick={handleRetry}
+                className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Refresh Page
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -147,8 +163,8 @@ const Order = () => {
                 <h3 className="font-semibold mb-2">Items:</h3>
                 <ul className="list-disc list-inside text-gray-600 text-sm">
                   {order.items.map(item => (
-                    <li key={item._id || item.product?._id}>
-                      {item.quantity}x {item.product?.title || 'Product'} - €{(parseFloat(item.price) * item.quantity)?.toFixed(2)}
+                    <li key={item._id}>
+                      {item.quantity}x {item.product?.title || 'Product'} - €{(item.price * item.quantity).toFixed(2)}
                     </li>
                   ))}
                 </ul>
@@ -175,7 +191,7 @@ const Order = () => {
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Total Amount:</span>
-                  <span className="text-lg font-bold text-red-600">€{order.totalPrice?.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-red-600">€{order.finalPrice.toFixed(2)}</span>
                 </div>
               </div>
             </div>

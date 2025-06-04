@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { cartApi } from '../../services/cartApi';
 import { toast } from 'react-toastify';
-import deliveryZoneService from '../../services/deliveryZoneService';
+import { deliveryZoneService } from '../../services/deliveryZoneService';
 
 // Async thunks
 export const fetchCart = createAsyncThunk(

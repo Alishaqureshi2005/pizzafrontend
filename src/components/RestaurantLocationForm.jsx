@@ -84,7 +84,16 @@ const RestaurantLocationForm = ({ onSave, initialData }) => {
 
     setLoading(true);
     try {
-      const result = await locationService.convertAddressToCoordinates(searchAddress);
+      // Add Pakistan and Hyderabad to the search query if not present
+      let searchQuery = searchAddress;
+      if (!searchQuery.toLowerCase().includes('pakistan')) {
+        searchQuery += ', Pakistan';
+      }
+      if (!searchQuery.toLowerCase().includes('hyderabad')) {
+        searchQuery += ', Hyderabad';
+      }
+
+      const result = await locationService.convertAddressToCoordinates(searchQuery);
       
       if (!result.success) {
         toast.error(result.error || 'Location not found');
@@ -98,10 +107,10 @@ const RestaurantLocationForm = ({ onSave, initialData }) => {
         ...prev,
         address,
         area,
-        city: addressDetails?.city || '',
-        district: addressDetails?.district || '',
-        province: addressDetails?.state || '',
-        country: addressDetails?.country || '',
+        city: addressDetails?.city || 'Hyderabad',
+        district: addressDetails?.district || 'Sindh',
+        province: addressDetails?.state || 'Sindh',
+        country: addressDetails?.country || 'Pakistan',
         coordinates
       }));
       

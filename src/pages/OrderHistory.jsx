@@ -288,15 +288,15 @@ const OrderHistory = () => {
             <OrderItems>
               {order.items.map((item, index) => (
                 <OrderItem key={index}>
-                  <span>{item.name} x {item.quantity}</span>
-                  <span>${(item.price * item.quantity).toFixed(2)}</span>
+                  <span>{item.product?.title || 'Product'} x {item.quantity}</span>
+                  <span>€{(item.price * item.quantity).toFixed(2)}</span>
                 </OrderItem>
               ))}
             </OrderItems>
 
             <OrderTotal>
               <span>Total</span>
-              <span>${order.total.toFixed(2)}</span>
+              <span>€{(order.finalPrice || 0).toFixed(2)}</span>
             </OrderTotal>
           </OrderCard>
         ))

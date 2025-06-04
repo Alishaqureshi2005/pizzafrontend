@@ -1,37 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaPrint, FaEdit } from 'react-icons/fa';
+import { FaArrowLeft, FaPrint } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { orderApi } from '../services/adminApi';
-import { printerService } from '../services/printerService';
-import OrderReceipt from '../components/OrderReceipt';
 import { orderService } from '../services/orderService';
-import { FaMapMarkerAlt, FaClock, FaShoppingBag, FaCreditCard } from 'react-icons/fa';
+import OrderReceipt from '../components/OrderReceipt';
 
 const OrderDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
 
   useEffect(() => {
+    if (!id) {
+      setError('Order ID is missing');
+      setLoading(false);
+      return;
+    }
     fetchOrderDetails();
   }, [id]);
 
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
-      const response = await orderService.getOrder(id);
-      if (response.success) {
-        setOrder(response.data);
-      } else {
-        toast.error(response.message || 'Error fetching order details');
+      setError(null);
+      const data = await orderService.getOrder(id);
+      setOrder(data);
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      setError(error.message || 'Error fetching order details');
+      toast.error(error.message || 'Error fetching order details');
+      
+      // Handle specific error cases
+      if (error.message === 'Please login to view order details' || 
+          error.message === 'You do not have permission to view this order') {
+        navigate('/login');
+      } else if (error.message === 'Order not found') {
         navigate('/orders');
       }
-    } catch (error) {
-      toast.error('Error fetching order details');
-      navigate('/orders');
     } finally {
       setLoading(false);
     }
@@ -39,25 +47,17 @@ const OrderDetails = () => {
 
   const handleUpdateStatus = async (newStatus) => {
     try {
-      const response = await orderApi.updateOrderStatus(id, newStatus);
-      if (response?.data?.success) {
-        setOrder(prev => ({ ...prev, status: newStatus }));
-        toast.success('Order status updated successfully');
-      }
+      const updatedOrder = await orderService.updateOrderStatus(id, newStatus);
+      setOrder(updatedOrder);
+      toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
+      toast.error(error.message || 'Failed to update order status');
     }
   };
 
-  const handlePrintOrder = async () => {
-    try {
-      await printerService.printOrder(order);
-      toast.success('Order printed successfully');
-    } catch (error) {
-      console.error('Error printing order:', error);
-      toast.error('Failed to print order');
-    }
+  const handlePrintOrder = () => {
+    setShowReceipt(true);
   };
 
   const getStatusColor = (status) => {
@@ -96,8 +96,52 @@ const OrderDetails = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <button
+          onClick={() => navigate('/orders')}
+          className="flex items-center text-blue-600 hover:text-blue-800 mb-6"
+        >
+          <FaArrowLeft className="mr-2" />
+          Back to Orders
+        </button>
+        <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!order) {
-    return null;
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <button
+          onClick={() => navigate('/orders')}
+          className="flex items-center text-blue-600 hover:text-blue-800 mb-6"
+        >
+          <FaArrowLeft className="mr-2" />
+          Back to Orders
+        </button>
+        <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Order Not Found</h2>
+          <p className="text-gray-600 mb-6">The order you're looking for doesn't exist or has been removed.</p>
+          <button
+            onClick={() => navigate('/orders')}
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          >
+            View All Orders
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -115,7 +159,7 @@ const OrderDetails = () => {
         <div className="bg-gray-50 px-6 py-4 border-b">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Order #{order._id.slice(-6)}</h1>
+              <h1 className="text-2xl font-bold">Order #{order._id}</h1>
               <p className="text-gray-600 mt-1">
                 Placed on {formatDate(order.createdAt)}
               </p>
@@ -130,46 +174,33 @@ const OrderDetails = () => {
         <div className="p-6 space-y-6">
           {/* Order Type and Payment */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center">
-              <FaShoppingBag className="text-gray-400 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Order Type</p>
-                <p className="font-medium">{order.orderType === 'delivery' ? 'Delivery' : 'Pickup'}</p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-600">Order Type</p>
+              <p className="font-medium capitalize">{order.orderType}</p>
             </div>
-            <div className="flex items-center">
-              <FaCreditCard className="text-gray-400 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Payment Method</p>
-                <p className="font-medium">
-                  {order.paymentMethod === 'cash' ? 'Cash on Delivery' : 'Card Payment'}
-                </p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-600">Payment Method</p>
+              <p className="font-medium capitalize">{order.paymentMethod}</p>
             </div>
           </div>
 
           {/* Delivery Details */}
-          {order.orderType === 'delivery' && (
+          {order.orderType === 'delivery' && order.deliveryAddress && (
             <div className="border-t pt-6">
               <h2 className="text-lg font-semibold mb-4">Delivery Details</h2>
               <div className="space-y-4">
-                <div className="flex items-start">
-                  <FaMapMarkerAlt className="text-gray-400 mr-3 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-600">Delivery Address</p>
-                    <p className="font-medium">{order.deliveryAddress.address}</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-gray-600">Delivery Address</p>
+                  <p className="font-medium">
+                    {order.deliveryAddress.street}<br />
+                    {order.deliveryAddress.city}, {order.deliveryAddress.postalCode}<br />
+                    {order.deliveryAddress.country}
+                  </p>
                 </div>
-                {order.deliveryZone && (
-                  <div className="flex items-start">
-                    <FaClock className="text-gray-400 mr-3 mt-1" />
-                    <div>
-                      <p className="text-sm text-gray-600">Delivery Zone</p>
-                      <p className="font-medium">{order.deliveryZone.name}</p>
-                      <p className="text-sm text-gray-600">
-                        Delivery Fee: ${order.deliveryCharge.toFixed(2)}
-                      </p>
-                    </div>
+                {order.deliveryCharge > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600">Delivery Fee</p>
+                    <p className="font-medium">€{order.deliveryCharge.toFixed(2)}</p>
                   </div>
                 )}
               </div>
@@ -184,16 +215,16 @@ const OrderDetails = () => {
                 <div key={item._id} className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg mr-4">
-                      {item.product.image && (
+                      {item.product?.image && (
                         <img
                           src={item.product.image}
-                          alt={item.product.name}
+                          alt={item.product.title}
                           className="w-full h-full object-cover rounded-lg"
                         />
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">{item.product.name}</p>
+                      <p className="font-medium">{item.product?.title || 'Product'}</p>
                       <p className="text-sm text-gray-600">
                         Quantity: {item.quantity}
                       </p>
@@ -204,7 +235,7 @@ const OrderDetails = () => {
                       )}
                     </div>
                   </div>
-                  <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                  <p className="font-medium">€{(item.price * item.quantity).toFixed(2)}</p>
                 </div>
               ))}
             </div>
@@ -216,17 +247,17 @@ const OrderDetails = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal</span>
-                <span>${(order.totalPrice - (order.orderType === 'delivery' ? order.deliveryCharge : 0)).toFixed(2)}</span>
+                <span>€{order.totalPrice.toFixed(2)}</span>
               </div>
-              {order.orderType === 'delivery' && (
+              {order.deliveryCharge > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery Fee</span>
-                  <span>${order.deliveryCharge.toFixed(2)}</span>
+                  <span>€{order.deliveryCharge.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-lg pt-2 border-t">
                 <span>Total</span>
-                <span>${order.totalPrice.toFixed(2)}</span>
+                <span>€{order.finalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

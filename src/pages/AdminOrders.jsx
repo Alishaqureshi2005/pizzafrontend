@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FaEye, FaTrash, FaCheck, FaTimes, FaEdit, FaPrint } from 'react-icons/fa';
+import { FaEye, FaTrash, FaPrint } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { orderApi } from '../services/adminApi';
-import { printerService } from '../services/printerService';
+import { orderService } from '../services/orderService';
 import OrderReceipt from '../components/OrderReceipt';
 
 const AdminOrders = () => {
@@ -19,10 +18,8 @@ const AdminOrders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await orderApi.getAllOrders();
-      if (response?.data?.success && response.data.data) {
-        setOrders(response.data.data);
-      }
+      const data = await orderService.getAllOrders();
+      setOrders(data);
     } catch (error) {
       setError('Failed to fetch orders');
       console.error('Error fetching orders:', error);
@@ -34,12 +31,8 @@ const AdminOrders = () => {
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       setLoading(true);
-      const response = await orderApi.updateOrder(orderId, { status: newStatus });
-      setOrders(prev => prev.map(order => order._id === orderId ? response.data.data : order));
-      
-      // Print order update
-      await printerService.printOrderUpdate(response.data.data, 'update');
-      
+      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      setOrders(prev => prev.map(order => order._id === orderId ? updatedOrder : order));
       toast.success('Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -49,23 +42,15 @@ const AdminOrders = () => {
     }
   };
 
-  const handlePrintOrder = async (order) => {
-    try {
-      setLoading(true);
-      await printerService.printOrder(order);
-      toast.success('Order printed successfully');
-    } catch (error) {
-      console.error('Error printing order:', error);
-      toast.error('Failed to print order');
-    } finally {
-      setLoading(false);
-    }
+  const handlePrintOrder = (order) => {
+    setSelectedOrder(order);
+    setShowReceipt(true);
   };
 
   const handleDeleteOrder = async (orderId) => {
     if (window.confirm('Are you sure you want to delete this order?')) {
       try {
-        await orderApi.deleteOrder(orderId);
+        await orderService.deleteOrder(orderId);
         setOrders(orders.filter(order => order._id !== orderId));
         toast.success('Order deleted successfully');
       } catch (error) {
@@ -94,11 +79,11 @@ const AdminOrders = () => {
       <div className="container mx-auto px-4">
         <h1 className="text-4xl font-bold text-red-600 mb-8 text-center">Manage Orders</h1>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="overflow-x-auto">
@@ -129,38 +114,38 @@ const AdminOrders = () => {
                 {orders.map((order) => (
                   <tr key={order._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{order.orderNumber || 'N/A'}</div>
+                      <div className="text-sm font-medium text-gray-900">{order._id}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {order.customer?.name || 'Guest'}
+                        {order.user?.name || 'Guest'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.customer?.email || 'No email'}
+                        {order.user?.email || 'No email'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
                         {order.items?.map(item => (
-                          <div key={item._id || Math.random()}>
-                            {item.quantity}x {item.name}
-                            {item.toppings?.length > 0 && (
+                          <div key={item._id}>
+                            {item.quantity}x {item.product?.title || 'Product'}
+                            {item.customization && (
                               <span className="text-gray-500">
-                                {' '}({item.toppings.map(t => t.name).join(', ')})
+                                {' '}({item.customization})
                               </span>
                             )}
                           </div>
-                        )) || 'No items'}
+                        ))}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        €{order.total?.total?.toFixed(2) || '0.00'}
+                        €{order.finalPrice.toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
-                        value={order.status || 'pending'}
+                        value={order.status}
                         onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
                         className="text-sm rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500"
                       >
@@ -168,7 +153,7 @@ const AdminOrders = () => {
                         <option value="preparing">Preparing</option>
                         <option value="ready">Ready</option>
                         <option value="delivering">Delivering</option>
-                        <option value="completed">Completed</option>
+                        <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
                     </td>

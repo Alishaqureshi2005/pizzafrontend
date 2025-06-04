@@ -1,38 +1,45 @@
 import api from './api';
-import axios from 'axios';
 
-const API_URL = 'https://pizzabackend-i6bv.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const productService = {
-  getAllProducts: async (filters = {}) => {
+  getAllProducts: async () => {
     try {
-      const params = new URLSearchParams();
-      if (filters.category) params.append('category', filters.category);
-      if (filters.search) params.append('search', filters.search);
-      
-      // Use axios directly for public endpoints
-      const response = await axios.get(`${API_URL}/products?${params.toString()}`);
-      
-      // Handle nested response structure
-      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
-        return { success: true, data: response.data.data.data };
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        return { success: true, data: response.data.data };
+      const response = await api.get('/products');
+      console.log('Raw API Response:', response.data);
+
+      // Check if response has the expected structure
+      if (response.data && response.data.success && Array.isArray(response.data.data)) {
+        return response.data.data;
       }
-      
-      return { success: false, data: [], message: 'Invalid data format received from server' };
+
+      // If response is not in expected format, try to handle it
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      // If response is an object with data property
+      if (response.data && response.data.data) {
+        return Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+      }
+
+      throw new Error('Invalid response format from server');
     } catch (error) {
-      console.error('Error fetching products:', error);
-      return { success: false, data: [], message: error.message };
+      console.error('Error in getAllProducts:', error);
+      throw error;
     }
   },
 
   getProduct: async (id) => {
     try {
-      return await api.get(`/products/${id}`);
+      const response = await api.get(`/products/${id}`);
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+      throw new Error('Invalid response format from server');
     } catch (error) {
-      console.error('Error fetching product:', error);
-      return { success: false, data: null, message: error.message };
+      console.error('Error in getProduct:', error);
+      throw error;
     }
   },
 
@@ -77,10 +84,14 @@ export const productService = {
 
   searchProducts: async (query) => {
     try {
-      return await api.get(`/products/search?query=${encodeURIComponent(query)}`);
+      const response = await api.get('/products/search', { params: { query } });
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to search products');
+      }
+      return response.data.data;
     } catch (error) {
       console.error('Error searching products:', error);
-      return { success: false, data: [], message: error.message };
+      throw error.response?.data || error;
     }
   },
 
@@ -217,6 +228,34 @@ export const productService = {
         success: false,
         data: []
       };
+    }
+  },
+
+  // Get products by category
+  getProductsByCategory: async (category) => {
+    try {
+      const response = await api.get(`/products/category/${category}`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch products by category');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching products by category:', error);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get featured products
+  getFeaturedProducts: async () => {
+    try {
+      const response = await api.get('/products/featured');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch featured products');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      throw error.response?.data || error;
     }
   }
 }; 

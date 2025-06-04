@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { orderService } from '../services/orderService';
-import { handleApiError } from '../utils/errorHandler';
+import { deliveryZoneService } from '../services/deliveryZoneService';
 import { validateOrderForm } from '../utils/validation';
-import { FaMapMarkerAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaClock } from 'react-icons/fa';
 
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cartItems, total, deliveryFee, subtotal } = location.state || { cartItems: [], total: 0, deliveryFee: 0, subtotal: 0 };
+  const { cartItems, total, deliveryFee: initialDeliveryFee, subtotal } = location.state || { cartItems: [], total: 0, deliveryFee: 0, subtotal: 0 };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -19,25 +19,69 @@ const Checkout = () => {
     city: '',
     zipCode: '',
     paymentMethod: 'cash',
-    orderType: 'pickup'
+    orderType: 'pickup',
+    selectedTimeSlot: null
   });
 
   const [coordinates, setCoordinates] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFee);
+  const [isOutOfZone, setIsOutOfZone] = useState(false);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
+
+  useEffect(() => {
+    if (formData.orderType === 'delivery' && coordinates) {
+      checkDeliveryAvailability();
+    }
+  }, [coordinates, formData.orderType]);
+
+  const checkDeliveryAvailability = async () => {
+    try {
+      const result = await deliveryZoneService.checkDeliveryAvailability(
+        coordinates.latitude,
+        coordinates.longitude,
+        subtotal
+      );
+
+      if (result.success) {
+        const { zone, availableSlots } = result.data;
+        setSelectedZone(zone);
+        setDeliveryFee(zone.deliveryFee);
+        setMinimumOrderAmount(zone.minimumOrderAmount);
+        setAvailableTimeSlots(availableSlots);
+        setIsOutOfZone(false);
+
+        // Check minimum order amount
+        if (subtotal < zone.minimumOrderAmount) {
+          toast.warning(`Minimum order amount is €${zone.minimumOrderAmount}`);
+        }
+      } else {
+        setIsOutOfZone(true);
+        setSelectedZone(null);
+        setAvailableTimeSlots([]);
+        toast.warning(result.message || 'Location is outside our delivery zones');
+      }
+    } catch (error) {
+      console.error('Error checking delivery availability:', error);
+      toast.error('Failed to check delivery availability');
+    }
+  };
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCoordinates({
+        async (position) => {
+          const coords = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
-          });
+          };
+          setCoordinates(coords);
           setIsGettingLocation(false);
-          toast.success('Location obtained successfully!');
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -66,6 +110,13 @@ const Checkout = () => {
     }
   };
 
+  const handleTimeSlotSelect = (slot) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedTimeSlot: slot
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -75,6 +126,13 @@ const Checkout = () => {
     const errors = validateOrderForm(formData, formData.orderType);
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate minimum order amount for delivery
+    if (formData.orderType === 'delivery' && subtotal < minimumOrderAmount) {
+      toast.error(`Minimum order amount is €${minimumOrderAmount}`);
       setIsSubmitting(false);
       return;
     }
@@ -101,14 +159,20 @@ const Checkout = () => {
         total: {
           subtotal: subtotal,
           deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
-          total: formData.orderType === 'delivery' ? total : subtotal
+          total: formData.orderType === 'delivery' ? total + deliveryFee : subtotal
         }
       };
 
-      // Add delivery address only if order type is delivery
+      // Add delivery address and time slot if order type is delivery
       if (formData.orderType === 'delivery') {
         if (!coordinates) {
           toast.error('Please get your location or enter address manually');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!formData.selectedTimeSlot) {
+          toast.error('Please select a delivery time slot');
           setIsSubmitting(false);
           return;
         }
@@ -119,6 +183,8 @@ const Checkout = () => {
           zipCode: formData.zipCode,
           coordinates: coordinates
         };
+        orderData.deliveryZone = selectedZone.id;
+        orderData.timeSlot = formData.selectedTimeSlot;
       }
 
       // Create the order
@@ -175,14 +241,26 @@ const Checkout = () => {
               <span>€{subtotal.toFixed(2)}</span>
             </div>
             {formData.orderType === 'delivery' && (
-              <div className="flex justify-between text-gray-600">
-                <span>Delivery Fee</span>
-                <span>€{deliveryFee.toFixed(2)}</span>
-              </div>
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Delivery Fee</span>
+                  <span>€{deliveryFee.toFixed(2)}</span>
+                  {isOutOfZone && (
+                    <span className="text-red-500 text-sm">
+                      (Out of delivery zone)
+                    </span>
+                  )}
+                </div>
+                {minimumOrderAmount > 0 && (
+                  <div className="text-sm text-gray-500">
+                    Minimum order amount: €{minimumOrderAmount.toFixed(2)}
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-between font-bold text-lg">
               <span>Total</span>
-              <span>€{(formData.orderType === 'delivery' ? total : subtotal).toFixed(2)}</span>
+              <span>€{(formData.orderType === 'delivery' ? total + deliveryFee : subtotal).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -298,6 +376,30 @@ const Checkout = () => {
                     {formErrors.zipCode && <p className="text-red-500 text-sm mt-1">{formErrors.zipCode}</p>}
                   </div>
                 </div>
+
+                {/* Time Slots */}
+                {availableTimeSlots.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Delivery Time</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableTimeSlots.map((slot) => (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() => handleTimeSlotSelect(slot)}
+                          className={`p-2 border rounded text-sm ${
+                            formData.selectedTimeSlot?.id === slot.id
+                              ? 'bg-blue-100 border-blue-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <FaClock className="inline mr-1" />
+                          {slot.startTime} - {slot.endTime}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -316,9 +418,9 @@ const Checkout = () => {
 
             <button
               type="submit"
-              disabled={isSubmitting || isGettingLocation}
+              disabled={isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))}
               className={`w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
-                (isSubmitting || isGettingLocation) ? 'opacity-50 cursor-not-allowed' : ''
+                (isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {isSubmitting ? 'Placing Order...' : 'Place Order'}

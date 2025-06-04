@@ -4,6 +4,8 @@ import { useDispatch } from 'react-redux';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
 import { addItemToCart } from '../store/slices/cartSlice';
+import { productService } from '../services/productService';
+import cartService from '../services/cartService';
 import SizeSelector from '../components/pizza-customization/SizeSelector';
 import CrustSelector from '../components/pizza-customization/CrustSelector';
 import ToppingSelector from '../components/pizza-customization/ToppingSelector';
@@ -66,6 +68,8 @@ const PizzaCustomization = () => {
   const [sizes, setSizes] = useState([]);
   const [crusts, setCrusts] = useState([]);
   const [pizzaDetails, setPizzaDetails] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState(null);
 
   // Log the current URL and params when component mounts
   useEffect(() => {
@@ -95,213 +99,72 @@ const PizzaCustomization = () => {
     }
   }, [productId]);
 
+  // Add useEffect to fetch product details
+  useEffect(() => {
+    const fetchProductDetails = async () => {
+      try {
+        const response = await productService.getProduct(productId);
+        setProduct(response);
+      } catch (error) {
+        console.error('Error fetching product details:', error);
+        toast.error('Failed to load product details');
+      }
+    };
+
+    if (productId) {
+      fetchProductDetails();
+    }
+  }, [productId]);
+
   const fetchCustomizationOptions = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Default data in case API is not available
-      const defaultData = {
-        sizes: [
-          { name: 'Small', price: 8.99, category: 'Size' },
-          { name: 'Medium', price: 10.99, category: 'Size' },
-          { name: 'Large', price: 12.99, category: 'Size' }
-        ],
-        crusts: [
-          { name: 'Classic', price: 0, category: 'Crust' },
-          { name: 'Thin', price: 0, category: 'Crust' },
-          { name: 'Thick', price: 1.99, category: 'Crust' }
-        ],
-        toppings: [
-          { id: 1, name: 'Pepperoni', price: 1.99, type: 'meat', calories: 120, isVegetarian: false },
-          { id: 2, name: 'Mushrooms', price: 1.49, type: 'vegetable', calories: 30, isVegetarian: true },
-          { id: 3, name: 'Onions', price: 1.49, type: 'vegetable', calories: 25, isVegetarian: true },
-          { id: 4, name: 'Sausage', price: 1.99, type: 'meat', calories: 150, isVegetarian: false },
-          { id: 5, name: 'Bacon', price: 1.99, type: 'meat', calories: 140, isVegetarian: false },
-          { id: 6, name: 'Extra Cheese', price: 1.49, type: 'cheese', calories: 100, isVegetarian: true }
-        ],
-        extraItems: [
-          { id: 1, name: 'Garlic Bread', price: 3.99, category: 'Sides' },
-          { id: 2, name: 'Chicken Wings', price: 6.99, category: 'Sides' },
-          { id: 3, name: 'Soft Drink', price: 1.99, category: 'Drinks' }
-        ]
-      };
+      // First, fetch the product details to get its customization options
+      const productResponse = await productService.getProduct(productId);
+      console.log('Product details:', productResponse);
 
+      if (!productResponse || !productResponse.customization) {
+        throw new Error('Product customization data not found');
+      }
+
+      const productCustomization = productResponse.customization;
+      console.log('Product customization:', productCustomization);
+
+      // Use the product's customization data
+      if (productCustomization.sizes) {
+        setSizes(productCustomization.sizes);
+        if (productCustomization.sizes.length > 0) {
+          setSelectedSize(productCustomization.sizes[0].name);
+        }
+      }
+
+      if (productCustomization.crusts) {
+        setCrusts(productCustomization.crusts);
+        if (productCustomization.crusts.length > 0) {
+          setSelectedCrust(productCustomization.crusts[0].name);
+        }
+      }
+
+      // Fetch toppings
       try {
-        console.log('Attempting to fetch customization options...');
-        
-        // Log the API URLs being called
-        const apiUrls = {
-          sizes: `${API_URL}/pizza/sizes`,
-          crusts: `${API_URL}/pizza/crusts`,
-          toppings: `${API_URL}/toppings`,
-          extraItems: `${API_URL}/pizza/extra-items`
-        };
-        console.log('API URLs:', apiUrls);
-
-        // Try to fetch from API with proper error handling
-        const [sizesRes, crustsRes, toppingsRes, extraItemsRes] = await Promise.all([
-          fetch(`${API_URL}/pizza/sizes/${productId}`, {
+        const toppingsResponse = await fetch(`${API_URL}/toppings`, {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json'
             }
-          }).then(async res => {
-            console.log('Sizes API Response:', {
-              status: res.status,
-              statusText: res.statusText,
-              headers: Object.fromEntries(res.headers.entries())
-            });
-            
-            let data;
-            if (!res.ok) {
-              // If product-specific sizes fail, try fetching default sizes
-              console.log('Falling back to default sizes...');
-              const defaultRes = await fetch(`${API_URL}/pizza/sizes`, {
-                headers: {
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json'
-                }
-              });
-              
-              if (!defaultRes.ok) {
-                console.error('Failed to fetch both product-specific and default sizes');
-                return defaultData.sizes;
-              }
-              
-              data = await defaultRes.json();
-            } else {
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              console.warn('Sizes API returned non-JSON response:', contentType);
-              return defaultData.sizes;
-            }
-              data = await res.json();
-            }
-            
-            console.log('Sizes Data:', data);
-            return data.success && data.sizes ? data.sizes : defaultData.sizes;
-          }),
-          fetch(`${API_URL}/pizza/crusts`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
-          }).then(async res => {
-            console.log('Crusts API Response:', {
-              status: res.status,
-              statusText: res.statusText,
-              headers: Object.fromEntries(res.headers.entries())
-            });
-            if (!res.ok) throw new Error(`Failed to fetch crusts: ${res.status} ${res.statusText}`);
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              console.warn('Crusts API returned non-JSON response:', contentType);
-              return defaultData.crusts;
-            }
-            const data = await res.json();
-            console.log('Crusts Data:', data);
-            return data;
-          }),
-          fetch(`${API_URL}/toppings`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
-          }).then(async res => {
-            console.log('Toppings API Response:', {
-              status: res.status,
-              statusText: res.statusText,
-              headers: Object.fromEntries(res.headers.entries()),
-              url: res.url
-            });
-            if (!res.ok) throw new Error(`Failed to fetch toppings: ${res.status} ${res.statusText}`);
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              console.warn('Toppings API returned non-JSON response:', contentType);
-              return defaultData.toppings;
-            }
-            const data = await res.json();
-            console.log('Toppings Data:', data);
-            return data;
-          }),
-          fetch(`${API_URL}/pizza/extra-items`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
-          }).then(async res => {
-            console.log('Extra Items API Response:', {
-              status: res.status,
-              statusText: res.statusText,
-              headers: Object.fromEntries(res.headers.entries())
-            });
-            if (!res.ok) throw new Error(`Failed to fetch extra items: ${res.status} ${res.statusText}`);
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              console.warn('Extra Items API returned non-JSON response:', contentType);
-              return defaultData.extraItems;
-            }
-            const data = await res.json();
-            console.log('Extra Items Data:', data);
-            return data;
-          })
-        ]);
-
-        console.log('All API Responses:', {
-          sizes: sizesRes,
-          crusts: crustsRes,
-          toppings: toppingsRes,
-          extraItems: extraItemsRes
         });
 
-        // Update state with API data
-        if (Array.isArray(sizesRes)) {
-          setSizes(sizesRes);
-          if (sizesRes.length > 0) setSelectedSize(sizesRes[0].name);
-        } else if (sizesRes && sizesRes.sizes && Array.isArray(sizesRes.sizes)) {
-          setSizes(sizesRes.sizes);
-          if (sizesRes.sizes.length > 0) setSelectedSize(sizesRes.sizes[0].name);
+        if (!toppingsResponse.ok) {
+          throw new Error(`Failed to fetch toppings: ${toppingsResponse.status}`);
         }
-        if (Array.isArray(crustsRes)) {
-          setCrusts(crustsRes);
-          if (crustsRes.length > 0) setSelectedCrust(crustsRes[0].name);
-        }
-        if (toppingsRes && toppingsRes.success && Array.isArray(toppingsRes.data)) {
-          const groupedToppings = toppingsRes.data.reduce((acc, topping) => {
-            // Ensure each topping has a unique ID and proper initial state
-            const toppingWithId = {
-              ...topping,
-              id: topping._id || topping.id || `topping-${Date.now()}-${Math.random()}`, // Ensure unique ID
-              quantity: 0,
-              category: topping.category || topping.type || 'Other'
-            };
-            
-            const category = toppingWithId.category;
-            if (!acc[category]) {
-              acc[category] = [];
-            }
-            
-            // Check if this topping is already in the category
-            const existingIndex = acc[category].findIndex(t => 
-              t.name === toppingWithId.name || 
-              (t.id && t.id === toppingWithId.id) || 
-              (t._id && t._id === toppingWithId._id)
-            );
-            
-            if (existingIndex === -1) {
-              // Only add if not already present
-              acc[category].push(toppingWithId);
-            }
-            
-            return acc;
-          }, {});
-          
-          console.log('Initialized toppings:', groupedToppings);
-          setToppingsByCategory(groupedToppings);
-        } else if (Array.isArray(toppingsRes)) {
-          // Handle case where API returns direct array
-          const groupedToppings = toppingsRes.reduce((acc, topping) => {
+
+        const toppingsData = await toppingsResponse.json();
+        console.log('Toppings Data:', toppingsData);
+
+        if (toppingsData && Array.isArray(toppingsData)) {
+          const groupedToppings = toppingsData.reduce((acc, topping) => {
             const toppingWithId = {
               ...topping, 
               id: topping._id || topping.id || `topping-${Date.now()}-${Math.random()}`,
@@ -314,7 +177,6 @@ const PizzaCustomization = () => {
               acc[category] = [];
             }
             
-            // Check if this topping is already in the category
             const existingIndex = acc[category].findIndex(t => 
               t.name === toppingWithId.name || 
               (t.id && t.id === toppingWithId.id) || 
@@ -322,7 +184,6 @@ const PizzaCustomization = () => {
             );
             
             if (existingIndex === -1) {
-              // Only add if not already present
               acc[category].push(toppingWithId);
             }
             
@@ -332,8 +193,29 @@ const PizzaCustomization = () => {
           console.log('Initialized toppings:', groupedToppings);
           setToppingsByCategory(groupedToppings);
         }
-        if (Array.isArray(extraItemsRes)) {
-          const groupedExtraItems = extraItemsRes.reduce((acc, item) => {
+      } catch (toppingsError) {
+        console.error('Error fetching toppings:', toppingsError);
+        toast.warning('Failed to load toppings. Some options may be limited.');
+      }
+
+      // Fetch extra items
+      try {
+        const extraItemsResponse = await fetch(`${API_URL}/pizza/extra-items`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!extraItemsResponse.ok) {
+          throw new Error(`Failed to fetch extra items: ${extraItemsResponse.status}`);
+        }
+
+        const extraItemsData = await extraItemsResponse.json();
+        console.log('Extra Items Data:', extraItemsData);
+
+        if (extraItemsData && Array.isArray(extraItemsData)) {
+          const groupedExtraItems = extraItemsData.reduce((acc, item) => {
             const category = item.category || 'Other';
             if (!acc[category]) acc[category] = [];
             acc[category].push({ ...item, quantity: 0 });
@@ -341,37 +223,11 @@ const PizzaCustomization = () => {
           }, {});
           setExtraItemsByCategory(groupedExtraItems);
         }
-
-      } catch (apiError) {
-        console.error('API Error Details:', {
-          message: apiError.message,
-          stack: apiError.stack,
-          name: apiError.name
-        });
-        // Use default data if API calls fail
-        setSizes(defaultData.sizes);
-        setCrusts(defaultData.crusts);
-        setSelectedSize(defaultData.sizes[0].name);
-        setSelectedCrust(defaultData.crusts[0].name);
-        
-        const groupedToppings = defaultData.toppings.reduce((acc, topping) => {
-          const category = topping.category || 'Other';
-          if (!acc[category]) acc[category] = [];
-          acc[category].push({ ...topping, quantity: 0 });
-          return acc;
-        }, {});
-        setToppingsByCategory(groupedToppings);
-
-        const groupedExtraItems = defaultData.extraItems.reduce((acc, item) => {
-          const category = item.category || 'Other';
-          if (!acc[category]) acc[category] = [];
-          acc[category].push({ ...item, quantity: 0 });
-          return acc;
-        }, {});
-        setExtraItemsByCategory(groupedExtraItems);
-        
-        toast.warning('Using default customization options');
+      } catch (extraItemsError) {
+        console.error('Error fetching extra items:', extraItemsError);
+        toast.warning('Failed to load extra items. Some options may be limited.');
       }
+
     } catch (err) {
       console.error('Error in fetchCustomizationOptions:', {
         message: err.message,
@@ -515,19 +371,13 @@ const PizzaCustomization = () => {
 
   const handleAddToCart = async () => {
     try {
-      setIsAddingToCart(true);
-
-      // Validate selections first
-      if (!validateSelections()) {
-        setIsAddingToCart(false);
+      // Validate required selections
+      if (!selectedSize) {
+        toast.error('Please select a size');
         return;
       }
-
-      // Get the auth token
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Please login to add items to cart');
-        navigate('/login');
+      if (!selectedCrust) {
+        toast.error('Please select a crust');
         return;
       }
 
@@ -543,7 +393,7 @@ const PizzaCustomization = () => {
         }));
 
       // Get selected extra items with quantity > 0
-      const selectedExtras = Object.values(extraItemsByCategory)
+      const selectedExtraItems = Object.values(extraItemsByCategory)
         .flat()
         .filter(item => item.quantity > 0)
         .map(item => ({
@@ -553,68 +403,62 @@ const PizzaCustomization = () => {
           quantity: Number(item.quantity)
         }));
 
-      // Get the selected size and crust objects for price calculation
-      const selectedSizeObj = sizes.find(s => s.name.toLowerCase() === selectedSize.toLowerCase());
-      const selectedCrustObj = crusts.find(c => c.name.toLowerCase() === selectedCrust.toLowerCase());
-
-      if (!selectedSizeObj || !selectedCrustObj) {
-        throw new Error('Invalid size or crust selection');
-      }
-
-      // Create cart item payload
-      const cartPayload = {
-        productId,
-        size: selectedSize.toLowerCase(),
-        crust: selectedCrust.toLowerCase(),
+      // Prepare cart item data
+      const cartItem = {
+        productId: productId,
+        size: selectedSize,
+        crust: selectedCrust,
         toppings: selectedToppings,
-        extraItems: selectedExtras,
+        extraItems: selectedExtraItems,
+        quantity: quantity,
         specialInstructions: specialInstructions || '',
-        quantity: 1,
-        basePrice: selectedSizeObj.price,
-        crustPrice: selectedCrustObj.price || 0,
-        price: calculateTotal()
+        customization: {
+          size: selectedSize,
+          crust: selectedCrust,
+          toppings: selectedToppings,
+          extraItems: selectedExtraItems
+        }
       };
 
-      console.log('Sending cart request:', cartPayload);
+      console.log('Sending cart request:', cartItem);
 
-      // First verify if the product exists
-      const productResponse = await fetch(`${API_URL}/products/${productId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Try to fetch the product first to validate it exists
+      try {
+        const productResponse = await productService.getProduct(productId);
+        if (!productResponse) {
+          throw new Error('Product not found');
         }
-      });
-
-      if (!productResponse.ok) {
-        throw new Error('Product not found or no longer available');
+      } catch (error) {
+        console.error('Error validating product:', error);
+        // If product not found, use the product data we already have
+        if (!product) {
+          toast.error('Product not found or no longer available');
+          return;
+        }
       }
 
-      // Send request to backend
-      const response = await fetch(`${API_URL}/cart/items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(cartPayload)
-      });
+      // Add to cart using the cart service
+      const result = await cartService.addToCart(cartItem);
       
-      const data = await response.json();
-       console.log(data);
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to add item to cart');
+      if (result.success) {
+        toast.success('Added to cart successfully!');
+        navigate('/cart');
+      } else {
+        throw new Error(result.message || 'Failed to add to cart');
       }
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to add item to cart');
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('not found') || error.message.includes('no longer available')) {
+        toast.error('This product is no longer available. Please try another item.');
+        navigate('/menu');
+      } else if (error.response?.status === 401) {
+        toast.error('Please log in to add items to your cart');
+        navigate('/login', { state: { from: '/menu' } });
+      } else {
+        toast.error(error.message || 'Failed to add to cart. Please try again.');
       }
-
-      toast.success('Pizza added to cart!');
-      navigate('/cart');
-    } catch (err) {
-      console.error('Error adding to cart:', err);
-      toast.error(err.message || 'Failed to add pizza to cart. Please try again.');
-    } finally {
-      setIsAddingToCart(false);
     }
   };
 
@@ -660,6 +504,40 @@ const PizzaCustomization = () => {
           totalPrice={calculateTotal()}
           onAddToCart={handleAddToCart}
           isAddingToCart={isAddingToCart}
+          customization={(() => {
+            // Create a safe customization object
+            const safeCustomization = {
+              size: selectedSize || '',
+              crust: selectedCrust || '',
+              toppings: [],
+              extraItems: [],
+              specialInstructions: specialInstructions || ''
+            };
+
+            // Safely process toppings
+            if (toppingsByCategory) {
+              safeCustomization.toppings = Object.values(toppingsByCategory)
+                .flat()
+                .filter(topping => topping && typeof topping === 'object' && topping.quantity > 0)
+                .map(topping => ({
+                  name: String(topping.name || ''),
+                  quantity: Number(topping.quantity || 0)
+                }));
+            }
+
+            // Safely process extra items
+            if (extraItemsByCategory) {
+              safeCustomization.extraItems = Object.values(extraItemsByCategory)
+                .flat()
+                .filter(item => item && typeof item === 'object' && item.quantity > 0)
+                .map(item => ({
+                  name: String(item.name || ''),
+                  quantity: Number(item.quantity || 0)
+                }));
+            }
+
+            return safeCustomization;
+          })()}
         />
       </Content>
     </Container>
