@@ -13,7 +13,7 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { login,user } = useAuth();
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     setFormData({

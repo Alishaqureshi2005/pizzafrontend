@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
-import { orderService } from '../services/orderService';
+import orderService from '../services/orderService';
 import { FaTrash } from 'react-icons/fa';
 
 const Container = styled.div`

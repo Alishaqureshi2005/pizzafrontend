@@ -10,95 +10,34 @@ const RESTAURANT_COORDINATES = {
   longitude: -0.1278
 };
 
-export const orderService = {
+const orderService = {
   // Create a new order
   createOrder: async (orderData) => {
     try {
-      // Calculate delivery charge if it's a delivery order
-      if (orderData.orderType === 'delivery' && orderData.deliveryAddress?.coordinates) {
-        const deliveryCheck = deliveryZoneService.checkDeliveryAvailability(
-          orderData.deliveryAddress.coordinates,
-          RESTAURANT_COORDINATES
-        );
-
-        if (!deliveryCheck.available) {
-          throw new Error(deliveryCheck.message);
-        }
-
-        // Calculate delivery charge
-        const deliveryCharge = deliveryZoneService.calculateDeliveryCharge(
-          deliveryCheck.distance,
-          orderData.total.subtotal
-        );
-
-        if (deliveryCharge === null) {
-          throw new Error('Delivery not available for this location');
-        }
-
-        // Add delivery charge to order data
-        orderData.deliveryCharge = deliveryCharge;
-        orderData.deliveryZone = deliveryCheck.zone;
-        orderData.finalPrice = orderData.total.subtotal + deliveryCharge;
-      }
-
       const response = await api.post('/orders', orderData);
       return response.data;
     } catch (error) {
-      throw error;
+      throw error.response?.data || error;
     }
   },
 
-  // Get user's orders with filters
+  // Get user's orders
   getUserOrders: async (filters = {}) => {
     try {
       const response = await api.get('/orders', { params: filters });
       return response.data.data;
     } catch (error) {
-      throw error;
+      throw error.response?.data || error;
     }
   },
 
   // Get single order
   getOrder: async (orderId) => {
     try {
-      if (!orderId) {
-        throw new Error('Order ID is required');
-      }
-
       const response = await api.get(`/orders/${orderId}`);
-      
-      if (!response.data) {
-        throw new Error('No data received from server');
-      }
-
-      if (!response.data.data) {
-        throw new Error('Invalid response format from server');
-      }
-
       return response.data.data;
     } catch (error) {
-      console.error('Error fetching order:', error);
-      
-      if (error.response) {
-        // Handle specific API error responses
-        switch (error.response.status) {
-          case 404:
-            throw new Error('Order not found');
-          case 401:
-            throw new Error('Please login to view order details');
-          case 403:
-            throw new Error('You do not have permission to view this order');
-          default:
-            throw new Error(error.response.data?.message || 'Failed to fetch order details');
-        }
-      }
-
-      // Handle network or other errors
-      if (error.message.includes('Network Error')) {
-        throw new Error('Network error. Please check your internet connection');
-      }
-
-      throw error;
+      throw error.response?.data || error;
     }
   },
 
@@ -108,7 +47,17 @@ export const orderService = {
       const response = await api.put(`/orders/${orderId}/status`, { status });
       return response.data.data;
     } catch (error) {
-      throw error;
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get all orders (Admin only)
+  getAllOrders: async () => {
+    try {
+      const response = await api.get('/orders/admin/orders');
+      return response.data.data;
+    } catch (error) {
+      throw error.response?.data || error;
     }
   },
 
@@ -118,17 +67,7 @@ export const orderService = {
       const response = await api.delete(`/orders/${orderId}`);
       return response.data;
     } catch (error) {
-      throw error;
-    }
-  },
-
-  // Get all orders (Admin only)
-  getAllOrders: async () => {
-    try {
-      const response = await api.get('/admin/orders');
-      return response.data.data;
-    } catch (error) {
-      throw error;
+      throw error.response?.data || error;
     }
   },
 
@@ -138,7 +77,7 @@ export const orderService = {
       const response = await api.get(`/orders/user/${userId}`, { params: filters });
       return response.data.data;
     } catch (error) {
-      throw error;
+      throw error.response?.data || error;
     }
   },
 
@@ -242,3 +181,5 @@ export const orderService = {
     }
   }
 };
+
+export default orderService;

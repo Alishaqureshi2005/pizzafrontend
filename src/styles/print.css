@@ -1,0 +1,58 @@
+@media print {
+  /* Hide elements with the no-print class */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Hide elements that should not be printed */
+  .no-print,
+  header,
+  nav,
+  footer,
+  aside,
+  form,
+  iframe,
+  /* Targeting common classes for navigation/headers/footers */
+  .navbar,
+  .admin-navbar,
+  .header,
+  .footer,
+  /* Targeting the specific button container in OrderDetails */
+  .mb-6.flex.items-center.justify-between {
+    display: none !important;
+  }
+
+  /* Optional: Adjust main content for better print layout */
+  .container.mx-auto.px-4.py-8 {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Ensure text is black for readability */
+  body {
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Avoid breaking content across pages where possible */
+  .bg-white.rounded-lg.shadow-lg.p-6,
+  table,
+  thead,
+  tbody,
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure table headers repeat on new pages */
+  thead {
+    display: table-header-group;
+  }
+
+  /* Adjust table cell padding if needed */
+  td,
+  th {
+    padding: 8px !important;
+  }
+} 

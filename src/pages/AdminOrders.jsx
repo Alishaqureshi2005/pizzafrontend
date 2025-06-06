@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEye, FaTrash, FaPrint } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { orderService } from '../services/orderService';
+import orderService from '../services/orderService';
 import OrderReceipt from '../components/OrderReceipt';
 
 const AdminOrders = () => {

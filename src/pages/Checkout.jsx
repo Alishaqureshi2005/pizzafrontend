@@ -1,15 +1,27 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState} from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { orderService } from '../services/orderService';
-import { deliveryZoneService } from '../services/deliveryZoneService';
+import orderService from '../services/orderService';
+// import { deliveryZoneService } from '../services/deliveryZoneService';
 import { validateOrderForm } from '../utils/validation';
-import { FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaClock, FaSearch } from 'react-icons/fa';
+import { locationService } from '../services/locationService';
+import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 
+const LocationMarker = ({ position, setPosition }) => {
+  const map = useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, map.getZoom());
+    },
+  });
+
+  return position ? <Marker position={position} /> : null;
+};
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cartItems, total, deliveryFee: initialDeliveryFee, subtotal } = location.state || { cartItems: [], total: 0, deliveryFee: 0, subtotal: 0 };
+  const { cartItems, total, deliveryFee, subtotal } = location.state || { cartItems: [], total: 0, deliveryFee: 0, subtotal: 0 };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -23,77 +35,132 @@ const Checkout = () => {
     selectedTimeSlot: null
   });
 
-  const [coordinates, setCoordinates] = useState(null);
+  // const [coordinates, setCoordinates] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  // const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [formErrors, setFormErrors] = useState({});
-  const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFee);
-  const [isOutOfZone, setIsOutOfZone] = useState(false);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
+  // const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFee);
+  // const [isOutOfZone, setIsOutOfZone] = useState(false);
+  // const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  // const [selectedZone, setSelectedZone] = useState(null);
+  // const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
 
-  useEffect(() => {
-    if (formData.orderType === 'delivery' && coordinates) {
-      checkDeliveryAvailability();
+  // useEffect(() => {
+
+  //   if (formData.orderType === 'delivery' && coordinates) {
+  //     checkDeliveryAvailability();
+  //   }
+  // }, [coordinates, formData.orderType]);
+   const [position, setPosition] = useState(
+      formData.coordinates ? 
+      [formData.coordinates.latitude, formData.coordinates.longitude] : 
+      [0,0] // Default to Mithi coordinates
+
+    );
+     const [loading, setLoading] = useState(false);
+    const [searchAddress, setSearchAddress] = useState('');
+ const handleSearch = async () => {
+    if (!searchAddress.trim()) {
+      toast.error('Please enter an address to search');
+
+      return;
     }
-  }, [coordinates, formData.orderType]);
 
-  const checkDeliveryAvailability = async () => {
+    setLoading(true);
     try {
-      const result = await deliveryZoneService.checkDeliveryAvailability(
-        coordinates.latitude,
-        coordinates.longitude,
-        subtotal
-      );
-
-      if (result.success) {
-        const { zone, availableSlots } = result.data;
-        setSelectedZone(zone);
-        setDeliveryFee(zone.deliveryFee);
-        setMinimumOrderAmount(zone.minimumOrderAmount);
-        setAvailableTimeSlots(availableSlots);
-        setIsOutOfZone(false);
-
-        // Check minimum order amount
-        if (subtotal < zone.minimumOrderAmount) {
-          toast.warning(`Minimum order amount is €${zone.minimumOrderAmount}`);
-        }
-      } else {
-        setIsOutOfZone(true);
-        setSelectedZone(null);
-        setAvailableTimeSlots([]);
-        toast.warning(result.message || 'Location is outside our delivery zones');
+      // Add Pakistan and Hyderabad to the search query if not present
+      let searchQuery = searchAddress;
+      if (!searchQuery.toLowerCase().includes('pakistan')) {
+        searchQuery += ', Pakistan';
       }
-    } catch (error) {
-      console.error('Error checking delivery availability:', error);
-      toast.error('Failed to check delivery availability');
-    }
-  };
+      if (!searchQuery.toLowerCase().includes('hyderabad')) {
+        searchQuery += ', Hyderabad';
+      }
 
-  const getCurrentLocation = () => {
-    setIsGettingLocation(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const coords = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          setCoordinates(coords);
-          setIsGettingLocation(false);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          setIsGettingLocation(false);
-          toast.error('Failed to get location. Please enter your address manually.');
-        }
-      );
-    } else {
-      setIsGettingLocation(false);
-      toast.error('Geolocation is not supported by your browser');
+      const result = await locationService.convertAddressToCoordinates(searchQuery);
+      
+      if (!result.success) {
+        toast.error(result.error || 'Location not found');
+        return;
+      }
+
+      const { coordinates, address, area, addressDetails } = result.data;
+      setPosition([coordinates.latitude, coordinates.longitude]);
+      
+      setFormData(prev => ({
+        ...prev,
+        address,
+        area,
+        city: addressDetails?.city || 'Hyderabad',
+        district: addressDetails?.district || 'Sindh',
+        province: addressDetails?.state || 'Sindh',
+        country: addressDetails?.country || 'Pakistan',
+        coordinates
+      }));
+      
+      toast.success('Location found! You can adjust it by clicking on the map.');
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Could not find the location. Please try again or use the map.');
+    } finally {
+      setLoading(false);
     }
   };
+  // const checkDeliveryAvailability = async () => {
+  //   try {
+  //     const result = await deliveryZoneService.checkDeliveryAvailability(
+  //       coordinates.latitude,
+  //       coordinates.longitude,
+  //       subtotal
+  //     );
+
+  //     if (result.success) {
+  //       const { zone, availableSlots } = result.data;
+  //       setSelectedZone(zone);
+  //       setDeliveryFee(zone.deliveryFee);
+  //       setMinimumOrderAmount(zone.minimumOrderAmount);
+  //       setAvailableTimeSlots(availableSlots);
+  //       setIsOutOfZone(false);
+
+  //       // Check minimum order amount
+  //       if (subtotal < zone.minimumOrderAmount) {
+  //         toast.warning(`Minimum order amount is €${zone.minimumOrderAmount}`);
+  //       }
+  //     } else {
+  //       setIsOutOfZone(true);
+  //       setSelectedZone(null);
+  //       setAvailableTimeSlots([]);
+  //       toast.warning(result.message || 'Location is outside our delivery zones');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error checking delivery availability:', error);
+  //     toast.error('Failed to check delivery availability');
+  //   }
+  // };
+
+  // const getCurrentLocation = () => {
+  //   setIsGettingLocation(true);
+  //   if (navigator.geolocation) {
+  //     navigator.geolocation.getCurrentPosition(
+  //       async (position) => {
+  //         const coords = {
+  //           latitude: position.coords.latitude,
+  //           longitude: position.coords.longitude
+  //         };
+  //         setCoordinates(coords);
+  //         setIsGettingLocation(false);
+  //       },
+  //       (error) => {
+  //         console.error('Error getting location:', error);
+  //         setIsGettingLocation(false);
+  //         toast.error('Failed to get location. Please enter your address manually.');
+  //       }
+  //     );
+  //   } else {
+  //     setIsGettingLocation(false);
+  //     toast.error('Geolocation is not supported by your browser');
+  //   }
+  // };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -131,11 +198,11 @@ const Checkout = () => {
     }
 
     // Validate minimum order amount for delivery
-    if (formData.orderType === 'delivery' && subtotal < minimumOrderAmount) {
-      toast.error(`Minimum order amount is €${minimumOrderAmount}`);
-      setIsSubmitting(false);
-      return;
-    }
+    // // if (formData.orderType === 'delivery' && subtotal < minimumOrderAmount) {
+    // //   toast.error(`Minimum order amount is €${minimumOrderAmount}`);
+    // //   setIsSubmitting(false);
+    //   return;
+    // }
 
     try {
       // Prepare order data
@@ -164,12 +231,12 @@ const Checkout = () => {
       };
 
       // Add delivery address and time slot if order type is delivery
-      if (formData.orderType === 'delivery') {
-        if (!coordinates) {
-          toast.error('Please get your location or enter address manually');
-          setIsSubmitting(false);
-          return;
-        }
+       if (formData.orderType === 'delivery') {
+      //   if (!coordinates) {
+      //     toast.error('Please get your location or enter address manually');
+      //     setIsSubmitting(false);
+      //     return;
+      //   }
 
         if (!formData.selectedTimeSlot) {
           toast.error('Please select a delivery time slot');
@@ -181,9 +248,9 @@ const Checkout = () => {
           address: formData.address,
           city: formData.city,
           zipCode: formData.zipCode,
-          coordinates: coordinates
+          // coordinates: coordinates
         };
-        orderData.deliveryZone = selectedZone.id;
+        // orderData.deliveryZone = selectedZone.id;
         orderData.timeSlot = formData.selectedTimeSlot;
       }
 
@@ -203,7 +270,11 @@ const Checkout = () => {
       setIsSubmitting(false);
     }
   };
-
+ const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
   if (!cartItems || cartItems.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -245,17 +316,17 @@ const Checkout = () => {
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
                   <span>€{deliveryFee.toFixed(2)}</span>
-                  {isOutOfZone && (
+                  {/* {isOutOfZone && (
                     <span className="text-red-500 text-sm">
                       (Out of delivery zone)
                     </span>
-                  )}
+                  )} */}
                 </div>
-                {minimumOrderAmount > 0 && (
+                {/* {minimumOrderAmount > 0 && (
                   <div className="text-sm text-gray-500">
                     Minimum order amount: €{minimumOrderAmount.toFixed(2)}
                   </div>
-                )}
+                )} */}
               </>
             )}
             <div className="flex justify-between font-bold text-lg">
@@ -321,7 +392,7 @@ const Checkout = () => {
 
             {formData.orderType === 'delivery' && (
               <>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium mb-1">Address</label>
                   <div className="flex gap-2">
                     <input
@@ -349,9 +420,9 @@ const Checkout = () => {
                       Location obtained: {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
                     </p>
                   )}
-                </div>
+                </div> */}
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">City</label>
                     <input
@@ -375,10 +446,80 @@ const Checkout = () => {
                     />
                     {formErrors.zipCode && <p className="text-red-500 text-sm mt-1">{formErrors.zipCode}</p>}
                   </div>
+                </div> */}
+  <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Location
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Search for restaurant location"
+                    className="w-full border border-gray-300 rounded pl-10 pr-3 py-2"
+                  />
+                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <FaMapMarkerAlt />
+                  {loading ? 'Searching...' : 'Find'}
+                </button>
+              </div>
+            </div>
 
+            <div className="h-[400px] rounded-lg overflow-hidden border border-gray-300">
+              <MapContainer
+                center={position}
+                zoom={13}
+                scrollWheelZoom={true}
+                className="h-full w-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <LocationMarker position={position} setPosition={setPosition} />
+              </MapContainer>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Address
+              </label>
+              <textarea
+                value={formData.address}
+                className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
+                rows={2}
+                readOnly
+                placeholder="Address will appear here when you select a location on the map"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Area
+              </label>
+              <input
+                type="text"
+                value={formData.area}
+                readOnly
+                className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
+                placeholder="Area will be filled automatically"
+              />
+            </div>
+          </div>
+        
                 {/* Time Slots */}
-                {availableTimeSlots.length > 0 && (
+                {/* {availableTimeSlots.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium mb-1">Delivery Time</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -399,7 +540,7 @@ const Checkout = () => {
                       ))}
                     </div>
                   </div>
-                )}
+                )} */}
               </>
             )}
 
@@ -416,11 +557,20 @@ const Checkout = () => {
               </select>
             </div>
 
-            <button
+            {/* <button
               type="submit"
               disabled={isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))}
               className={`w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
                 (isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSubmitting ? 'Placing Order...' : 'Place Order'}
+            </button> */}
+              <button
+              type="submit"
+              disabled={isSubmitting || (formData.orderType === 'delivery' && ( !formData.selectedTimeSlot))}
+              className={`w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
+                (isSubmitting || (formData.orderType === 'delivery' && ( !formData.selectedTimeSlot))) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               {isSubmitting ? 'Placing Order...' : 'Place Order'}

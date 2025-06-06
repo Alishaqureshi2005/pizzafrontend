@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { toast } from 'react-toastify';
 import { deliveryService } from '../services/deliveryService';
-import { orderService } from '../services/orderService';
-import { FaMapMarkerAlt, FaShoppingCart, FaCreditCard } from 'react-icons/fa';
+import orderService from '../services/orderService';
+import { FaMapMarkerAlt, FaShoppingCart, FaCreditCard, FaClock } from 'react-icons/fa';
 
 const Checkout = () => {
   const navigate = useNavigate();

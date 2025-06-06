@@ -40,7 +40,7 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {isAdminRoute ? <AdminNavbar /> : <Navbar />}
+      {isAdminRoute ? <AdminNavbar className="no-print" /> : <Navbar className="no-print" />}
     
       <main className="flex-grow">
         <Routes>

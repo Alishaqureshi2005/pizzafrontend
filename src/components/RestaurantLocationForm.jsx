@@ -42,7 +42,7 @@ const RestaurantLocationForm = ({ onSave, initialData }) => {
   const [position, setPosition] = useState(
     formData.coordinates ? 
     [formData.coordinates.latitude, formData.coordinates.longitude] : 
-    [24.7337, 69.7967] // Default to Mithi coordinates
+    [0,0] // Default to Mithi coordinates
   );
 
   const [loading, setLoading] = useState(false);

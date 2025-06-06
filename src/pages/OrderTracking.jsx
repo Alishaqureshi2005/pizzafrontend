@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
-import { orderService } from '../services/orderService';
+import orderService from '../services/orderService';
 
 const Container = styled.div`
   max-width: 800px;
