@@ -1,14 +1,16 @@
 export const validateOrderForm = (formData, orderType) => {
   const errors = {};
 
-  if (!formData.name) errors.name = 'Name is required';
-  if (!formData.email) errors.email = 'Email is required';
-  if (!formData.phone) errors.phone = 'Phone is required';
+  // Basic validation for all orders
+  if (!formData.name?.trim()) errors.name = 'Name is required';
+  if (!formData.email?.trim()) errors.email = 'Email is required';
+  if (!formData.phone?.trim()) errors.phone = 'Phone is required';
 
+  // Additional validation for delivery orders
   if (orderType === 'delivery') {
-    if (!formData.address) errors.address = 'Address is required';
-    if (!formData.city) errors.city = 'City is required';
-    if (!formData.zipCode) errors.zipCode = 'ZIP Code is required';
+    if (!formData.address?.trim()) errors.address = 'Address is required';
+    if (!formData.city?.trim()) errors.city = 'Area is required';
+    // Removed zipCode requirement as it's not used in the backend
   }
 
   return errors;

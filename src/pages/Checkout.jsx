@@ -1,4 +1,4 @@
- import React, { useState} from 'react';
+import React, { useEffect, useState} from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import orderService from '../services/orderService';
@@ -7,7 +7,12 @@ import { validateOrderForm } from '../utils/validation';
 import { FaMapMarkerAlt, FaClock, FaSearch } from 'react-icons/fa';
 import { locationService } from '../services/locationService';
 import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
-
+import restaurantService from '../services/restaurantService';
+import getDistanceFromLatLonInKm from '../utils/distance';
+import {
+  fetchDeliveryZones
+} from '../store/slices/deliveryZoneSlice';
+import { useDispatch, useSelector } from 'react-redux';
 const LocationMarker = ({ position, setPosition }) => {
   const map = useMapEvents({
     click(e) {
@@ -21,7 +26,10 @@ const LocationMarker = ({ position, setPosition }) => {
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cartItems, total, deliveryFee, subtotal } = location.state || { cartItems: [], total: 0, deliveryFee: 0, subtotal: 0 };
+  const { cartItems, total: initialTotal, subtotal } = location.state || { cartItems: [], total: 0, subtotal: 0 };
+  const [deliveryFee, setDeliveryFee] = useState(0);
+const [closestZone, setClosestZone] = useState(null);
+const [total, setTotal] = useState(initialTotal);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,43 +40,59 @@ const Checkout = () => {
     zipCode: '',
     paymentMethod: 'cash',
     orderType: 'pickup',
-    selectedTimeSlot: null
+    selectedTimeSlot: null,
+    notes: '',
+    tax: 0,
+    discount: 0
   });
-
+  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+  const { zones, error } = useSelector((state) => state.deliveryZones);
+  useEffect(() => {
+    dispatch(fetchDeliveryZones());
+  }, [dispatch]);
+  
+    useEffect(() => {
+      if (error) {
+        toast.error(error);
+      }
+    }, [error]);
+    useEffect(() => {
+  if (closestZone) {
+      setDeliveryFee(closestZone.deliveryFee)
+  } else {
+      setDeliveryFee(0)
+  }
+}, [closestZone]);
   // const [coordinates, setCoordinates] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [formErrors, setFormErrors] = useState({});
-  // const [deliveryFee, setDeliveryFee] = useState(initialDeliveryFee);
-  // const [isOutOfZone, setIsOutOfZone] = useState(false);
-  // const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
-  // const [selectedZone, setSelectedZone] = useState(null);
-  // const [minimumOrderAmount, setMinimumOrderAmount] = useState(0);
-
-  // useEffect(() => {
-
-  //   if (formData.orderType === 'delivery' && coordinates) {
-  //     checkDeliveryAvailability();
-  //   }
-  // }, [coordinates, formData.orderType]);
    const [position, setPosition] = useState(
       formData.coordinates ? 
       [formData.coordinates.latitude, formData.coordinates.longitude] : 
       [0,0] // Default to Mithi coordinates
-
     );
-     const [loading, setLoading] = useState(false);
     const [searchAddress, setSearchAddress] = useState('');
- const handleSearch = async () => {
+
+  // Update total calculation when delivery fee changes
+  useEffect(() => {
+    if (formData.orderType === 'delivery') {
+      const newTotal = subtotal + deliveryFee;
+      setTotal(newTotal);
+    } else {
+      setTotal(subtotal);
+    }
+  }, [deliveryFee, formData.orderType, subtotal]);
+
+  const handleSearch = async () => {
     if (!searchAddress.trim()) {
       toast.error('Please enter an address to search');
-
       return;
     }
 
     setLoading(true);
     try {
-      // Add Pakistan and Hyderabad to the search query if not present
       let searchQuery = searchAddress;
       if (!searchQuery.toLowerCase().includes('pakistan')) {
         searchQuery += ', Pakistan';
@@ -84,20 +108,33 @@ const Checkout = () => {
         return;
       }
 
-      const { coordinates, address, area, addressDetails } = result.data;
+      const { coordinates, address, area } = result.data;
+      const restaurantLocation = await restaurantService.getAllRestaurants();
       setPosition([coordinates.latitude, coordinates.longitude]);
+      const distance = getDistanceFromLatLonInKm(
+        restaurantLocation.data[0].coordinates.latitude,
+        restaurantLocation.data[0].coordinates.longitude,
+        coordinates.latitude,
+        coordinates.longitude
+      );
+
+      const matchingZones = zones.filter(zone => distance >= zone.distance);
+      const newClosestZone = matchingZones.length > 0
+        ? matchingZones.reduce((prev, curr) =>
+            curr.distance > prev.distance ? curr : prev
+          )
+        : null;
       
+      setClosestZone(newClosestZone);
+      setDeliveryFee(newClosestZone ? newClosestZone.deliveryFee : 0);
+
+      // Update form data with address and area
       setFormData(prev => ({
         ...prev,
         address,
-        area,
-        city: addressDetails?.city || 'Hyderabad',
-        district: addressDetails?.district || 'Sindh',
-        province: addressDetails?.state || 'Sindh',
-        country: addressDetails?.country || 'Pakistan',
-        coordinates
+        city: area, // Set the area as the city
       }));
-      
+
       toast.success('Location found! You can adjust it by clicking on the map.');
     } catch (error) {
       console.error('Search error:', error);
@@ -106,38 +143,7 @@ const Checkout = () => {
       setLoading(false);
     }
   };
-  // const checkDeliveryAvailability = async () => {
-  //   try {
-  //     const result = await deliveryZoneService.checkDeliveryAvailability(
-  //       coordinates.latitude,
-  //       coordinates.longitude,
-  //       subtotal
-  //     );
-
-  //     if (result.success) {
-  //       const { zone, availableSlots } = result.data;
-  //       setSelectedZone(zone);
-  //       setDeliveryFee(zone.deliveryFee);
-  //       setMinimumOrderAmount(zone.minimumOrderAmount);
-  //       setAvailableTimeSlots(availableSlots);
-  //       setIsOutOfZone(false);
-
-  //       // Check minimum order amount
-  //       if (subtotal < zone.minimumOrderAmount) {
-  //         toast.warning(`Minimum order amount is €${zone.minimumOrderAmount}`);
-  //       }
-  //     } else {
-  //       setIsOutOfZone(true);
-  //       setSelectedZone(null);
-  //       setAvailableTimeSlots([]);
-  //       toast.warning(result.message || 'Location is outside our delivery zones');
-  //     }
-  //   } catch (error) {
-  //     console.error('Error checking delivery availability:', error);
-  //     toast.error('Failed to check delivery availability');
-  //   }
-  // };
-
+  
   // const getCurrentLocation = () => {
   //   setIsGettingLocation(true);
   //   if (navigator.geolocation) {
@@ -177,44 +183,54 @@ const Checkout = () => {
     }
   };
 
-  const handleTimeSlotSelect = (slot) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedTimeSlot: slot
-    }));
-  };
+  // const handleTimeSlotSelect = (slot) => {
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     selectedTimeSlot: slot
+  //   }));
+  // };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Submit button clicked');
     setIsSubmitting(true);
     setFormErrors({});
 
+    // Log form data for debugging
+    console.log('Form Data:', formData);
+    console.log('Order Type:', formData.orderType);
+    console.log('Cart Items:', cartItems);
+    console.log('Subtotal:', subtotal);
+    console.log('Total:', total);
+
     // Validate form
     const errors = validateOrderForm(formData, formData.orderType);
+    console.log('Validation Errors:', errors);
+    
     if (Object.keys(errors).length > 0) {
+      console.log('Form validation failed');
       setFormErrors(errors);
       setIsSubmitting(false);
       return;
     }
 
-    // Validate minimum order amount for delivery
-    // // if (formData.orderType === 'delivery' && subtotal < minimumOrderAmount) {
-    // //   toast.error(`Minimum order amount is €${minimumOrderAmount}`);
-    // //   setIsSubmitting(false);
-    //   return;
-    // }
-
     try {
+      console.log('Preparing order data...');
+      // Calculate final price
+      const finalPrice = formData.orderType === 'delivery' ? subtotal + deliveryFee : subtotal;
+      console.log('Final Price:', finalPrice);
+
       // Prepare order data
       const orderData = {
         items: cartItems.map(item => ({
           productId: item.id,
-          name: item.name,
           quantity: item.quantity,
           price: item.price,
-          size: item.size,
-          toppings: item.toppings,
-          specialInstructions: item.specialInstructions
+          customization: {
+            size: item.size,
+            toppings: item.toppings,
+            specialInstructions: item.specialInstructions
+          }
         })),
         customerInfo: {
           name: formData.name,
@@ -223,39 +239,49 @@ const Checkout = () => {
         },
         orderType: formData.orderType,
         paymentMethod: formData.paymentMethod,
+        finalPrice: finalPrice,
         total: {
           subtotal: subtotal,
           deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
-          total: formData.orderType === 'delivery' ? total + deliveryFee : subtotal
-        }
+          total: finalPrice
+        },
+        tax: formData.tax || 0,
+        discount: formData.discount || 0,
+        notes: formData.notes || ''
       };
 
-      // Add delivery address and time slot if order type is delivery
-       if (formData.orderType === 'delivery') {
-      //   if (!coordinates) {
-      //     toast.error('Please get your location or enter address manually');
-      //     setIsSubmitting(false);
-      //     return;
-      //   }
-
-        if (!formData.selectedTimeSlot) {
-          toast.error('Please select a delivery time slot');
-          setIsSubmitting(false);
-          return;
+      // Add delivery specific data if order type is delivery
+      if (formData.orderType === 'delivery') {
+        if (!formData.address || !formData.city) {
+          throw new Error('Delivery address and area are required for delivery orders');
         }
+
+        // Extract area from the full address
+        const addressParts = formData.address.split(',');
+        const area = addressParts.find(part => 
+          part.trim().toLowerCase().includes('colony') || 
+          part.trim().toLowerCase().includes('area') ||
+          part.trim().toLowerCase().includes('sector')
+        )?.trim() || formData.city;
 
         orderData.deliveryAddress = {
           address: formData.address,
-          city: formData.city,
-          zipCode: formData.zipCode,
-          // coordinates: coordinates
+          area: area,
+          coordinates: {
+            latitude: position[0],
+            longitude: position[1]
+          }
         };
-        // orderData.deliveryZone = selectedZone.id;
-        orderData.timeSlot = formData.selectedTimeSlot;
+        orderData.deliveryCharge = deliveryFee;
+        orderData.deliveryZone = closestZone._id; // Send only the ObjectId
+        orderData.estimatedDeliveryTime = new Date(Date.now() + 45 * 60000);
       }
+
+      console.log('Sending order data:', JSON.stringify(orderData, null, 2));
 
       // Create the order
       const response = await orderService.createOrder(orderData);
+      console.log('Order response:', response);
       
       if (response.success) {
         toast.success('Order placed successfully!');
@@ -265,7 +291,20 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error('Error creating order:', error);
-      toast.error(error.message || 'Failed to place order. Please try again.');
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response:', error.response.data);
+        toast.error(error.response.data.message || 'Failed to place order. Please try again.');
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        toast.error('Unable to connect to the server. Please check if the server is running.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error message:', error.message);
+        toast.error(error.message || 'Failed to place order. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -316,22 +355,12 @@ const Checkout = () => {
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
                   <span>€{deliveryFee.toFixed(2)}</span>
-                  {/* {isOutOfZone && (
-                    <span className="text-red-500 text-sm">
-                      (Out of delivery zone)
-                    </span>
-                  )} */}
                 </div>
-                {/* {minimumOrderAmount > 0 && (
-                  <div className="text-sm text-gray-500">
-                    Minimum order amount: €{minimumOrderAmount.toFixed(2)}
-                  </div>
-                )} */}
               </>
             )}
             <div className="flex justify-between font-bold text-lg">
               <span>Total</span>
-              <span>€{(formData.orderType === 'delivery' ? total + deliveryFee : subtotal).toFixed(2)}</span>
+              <span>€{total.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -496,6 +525,7 @@ const Checkout = () => {
                 Full Address
               </label>
               <textarea
+              name='address'
                 value={formData.address}
                 className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
                 rows={2}
@@ -518,31 +548,21 @@ const Checkout = () => {
             </div>
           </div>
         
-                {/* Time Slots */}
-                {/* {availableTimeSlots.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Delivery Time</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableTimeSlots.map((slot) => (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          onClick={() => handleTimeSlotSelect(slot)}
-                          className={`p-2 border rounded text-sm ${
-                            formData.selectedTimeSlot?.id === slot.id
-                              ? 'bg-blue-100 border-blue-500'
-                              : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <FaClock className="inline mr-1" />
-                          {slot.startTime} - {slot.endTime}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
+                
               </>
             )}
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                placeholder="Any special instructions or notes for your order"
+                className="w-full p-2 border rounded"
+                rows={3}
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Payment Method</label>
@@ -568,9 +588,9 @@ const Checkout = () => {
             </button> */}
               <button
               type="submit"
-              disabled={isSubmitting || (formData.orderType === 'delivery' && ( !formData.selectedTimeSlot))}
-              className={`w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
-                (isSubmitting || (formData.orderType === 'delivery' && ( !formData.selectedTimeSlot))) ? 'opacity-50 cursor-not-allowed' : ''
+              disabled={isSubmitting }
+              className={`w-full  bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
+                (isSubmitting )? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               }`}
             >
               {isSubmitting ? 'Placing Order...' : 'Place Order'}

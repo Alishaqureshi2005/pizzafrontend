@@ -16,13 +16,9 @@ const AdminDeliveryZones = () => {
   const [editingZone, setEditingZone] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    radius: '',
+    distance: '',
     deliveryFee: '',
-    estimatedTime: '',
-    center: {
-      latitude: '',
-      longitude: ''
-    }
+    estimatedTime: ''
   });
 
   useEffect(() => {
@@ -58,14 +54,10 @@ const AdminDeliveryZones = () => {
     e.preventDefault();
     try {
       const zoneData = {
-        ...formData,
-        radius: parseFloat(formData.radius),
+        name: formData.name,
+        distance: parseFloat(formData.distance),
         deliveryFee: parseFloat(formData.deliveryFee),
         estimatedTime: parseInt(formData.estimatedTime),
-        coordinates: {
-          latitude: parseFloat(formData.center.latitude),
-          longitude: parseFloat(formData.center.longitude)
-        }
       };
 
       if (editingZone) {
@@ -90,13 +82,9 @@ const AdminDeliveryZones = () => {
     setEditingZone(zone);
     setFormData({
       name: zone.name || '',
-      radius: (zone.radius || 0).toString(),
+      distance: (zone.radius || 0).toString(),
       deliveryFee: (zone.deliveryFee || 0).toString(),
       estimatedTime: (zone.estimatedTime || 30).toString(),
-      center: {
-        latitude: (zone.coordinates?.latitude || zone.center?.latitude || 0).toString(),
-        longitude: (zone.coordinates?.longitude || zone.center?.longitude || 0).toString()
-      }
     });
     setIsModalOpen(true);
   };
@@ -115,26 +103,12 @@ const AdminDeliveryZones = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      radius: '',
+      distance: '',
       deliveryFee: '',
-      estimatedTime: '',
-      center: {
-        latitude: '',
-        longitude: ''
-      }
+      estimatedTime: ''
     });
   };
 
-  const getCoordinates = (zone) => {
-    // Handle both possible coordinate structures
-    if (zone.coordinates) {
-      return zone.coordinates;
-    }
-    if (zone.center) {
-      return zone.center;
-    }
-    return { latitude: 0, longitude: 0 };
-  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -158,19 +132,15 @@ const AdminDeliveryZones = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {zones.map((zone) => {
-            const coordinates = getCoordinates(zone);
             return (
               <div
                 key={zone._id}
                 className="bg-white rounded-lg shadow-md p-4"
               >
                 <h2 className="text-xl font-semibold mb-2">{zone.name}</h2>
-                <p className="text-gray-600 mb-1">Radius: {zone.radius || 0} km</p>
+                <p className="text-gray-600 mb-1">Distance: {zone.distance || 0} km</p>
                 <p className="text-gray-600 mb-1">Delivery Fee: €{zone.deliveryFee || 0}</p>
                 <p className="text-gray-600 mb-1">Estimated Time: {zone.estimatedTime || 30} min</p>
-                <p className="text-gray-600 mb-3">
-                  Center: {coordinates.latitude}, {coordinates.longitude}
-                </p>
                 
                 <div className="flex justify-end space-x-2">
                   <button
@@ -215,11 +185,11 @@ const AdminDeliveryZones = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Radius (km)</label>
+                  <label className="block text-sm font-medium text-gray-700">Distance (km)</label>
                   <input
                     type="number"
-                    name="radius"
-                    value={formData.radius}
+                    name="distance"
+                    value={formData.distance}
                     onChange={handleInputChange}
                     step="0.1"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -252,33 +222,7 @@ const AdminDeliveryZones = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Center Latitude</label>
-                  <input
-                    type="number"
-                    name="center.latitude"
-                    value={formData.center.latitude}
-                    onChange={handleInputChange}
-                    step="any"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Center Longitude</label>
-                  <input
-                    type="number"
-                    name="center.longitude"
-                    value={formData.center.longitude}
-                    onChange={handleInputChange}
-                    step="any"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
+              
               <div className="flex justify-end space-x-2">
                 <button
                   type="button"
