@@ -332,33 +332,33 @@ const [total, setTotal] = useState(initialTotal);
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+    <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">Checkout</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         {/* Order Summary */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Order Summary</h2>
           {cartItems.map((item) => (
-            <div key={item.id} className="flex justify-between py-2 border-b">
-              <span>{item.name} x {item.quantity}</span>
-              <span>€{(item.price * item.quantity).toFixed(2)}</span>
+            <div key={item.id} className="flex justify-between py-2 border-b text-sm sm:text-base">
+              <span className="flex-1 pr-2">{item.name} x {item.quantity}</span>
+              <span className="whitespace-nowrap">€{(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}
           <div className="mt-4 pt-4 border-t space-y-2">
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 text-sm sm:text-base">
               <span>Subtotal</span>
               <span>€{subtotal.toFixed(2)}</span>
             </div>
             {formData.orderType === 'delivery' && (
               <>
-                <div className="flex justify-between text-gray-600">
+                <div className="flex justify-between text-gray-600 text-sm sm:text-base">
                   <span>Delivery Fee</span>
                   <span>€{deliveryFee.toFixed(2)}</span>
                 </div>
               </>
             )}
-            <div className="flex justify-between font-bold text-lg">
+            <div className="flex justify-between font-bold text-base sm:text-lg">
               <span>Total</span>
               <span>€{total.toFixed(2)}</span>
             </div>
@@ -366,10 +366,10 @@ const [total, setTotal] = useState(initialTotal);
         </div>
 
         {/* Checkout Form */}
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Order Information</h2>
+        <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Order Information</h2>
           
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Full Name</label>
               <input
@@ -377,9 +377,9 @@ const [total, setTotal] = useState(initialTotal);
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className={`w-full p-2 border rounded ${formErrors.name ? 'border-red-500' : ''}`}
+                className="w-full p-2 text-sm sm:text-base border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
               />
-              {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
+              {formErrors.name && <p className="text-red-500 text-xs sm:text-sm mt-1">{formErrors.name}</p>}
             </div>
 
             <div>
@@ -389,9 +389,9 @@ const [total, setTotal] = useState(initialTotal);
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full p-2 border rounded ${formErrors.email ? 'border-red-500' : ''}`}
+                className="w-full p-2 text-sm sm:text-base border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
               />
-              {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}
+              {formErrors.email && <p className="text-red-500 text-xs sm:text-sm mt-1">{formErrors.email}</p>}
             </div>
 
             <div>
@@ -401,9 +401,9 @@ const [total, setTotal] = useState(initialTotal);
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className={`w-full p-2 border rounded ${formErrors.phone ? 'border-red-500' : ''}`}
+                className="w-full p-2 text-sm sm:text-base border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
               />
-              {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
+              {formErrors.phone && <p className="text-red-500 text-xs sm:text-sm mt-1">{formErrors.phone}</p>}
             </div>
 
             <div>
@@ -412,7 +412,7 @@ const [total, setTotal] = useState(initialTotal);
                 name="orderType"
                 value={formData.orderType}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 text-sm sm:text-base border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
               >
                 <option value="pickup">Pickup</option>
                 <option value="delivery">Delivery</option>
@@ -420,136 +420,77 @@ const [total, setTotal] = useState(initialTotal);
             </div>
 
             {formData.orderType === 'delivery' && (
-              <>
-                {/* <div>
-                  <label className="block text-sm font-medium mb-1">Address</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      className={`flex-1 p-2 border rounded ${formErrors.address ? 'border-red-500' : ''}`}
-                    />
+              <div className="space-y-3 sm:space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search Location
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchAddress}
+                        onChange={(e) => setSearchAddress(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Search for restaurant location"
+                        className="w-full border border-gray-300 rounded pl-10 pr-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                      <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    </div>
                     <button
                       type="button"
-                      onClick={getCurrentLocation}
-                      disabled={isGettingLocation}
-                      className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors ${
-                        isGettingLocation ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                      title="Get current location"
+                      onClick={handleSearch}
+                      disabled={loading}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
                     >
                       <FaMapMarkerAlt />
+                      {loading ? 'Searching...' : 'Find'}
                     </button>
                   </div>
-                  {formErrors.address && <p className="text-red-500 text-sm mt-1">{formErrors.address}</p>}
-                  {coordinates && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      Location obtained: {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
-                    </p>
-                  )}
-                </div> */}
+                </div>
 
-                {/* <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">City</label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      className={`w-full p-2 border rounded ${formErrors.city ? 'border-red-500' : ''}`}
+                <div className="h-[300px] sm:h-[400px] rounded-lg overflow-hidden border border-gray-300">
+                  <MapContainer
+                    center={position}
+                    zoom={13}
+                    scrollWheelZoom={true}
+                    className="h-full w-full"
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
-                    {formErrors.city && <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>}
-                  </div>
+                    <LocationMarker position={position} setPosition={setPosition} />
+                  </MapContainer>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Address
+                  </label>
+                  <textarea
+                    name='address'
+                    value={formData.address}
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    rows={2}
+                    readOnly
+                    placeholder="Address will appear here when you select a location on the map"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">ZIP Code</label>
-                    <input
-                      type="text"
-                      name="zipCode"
-                      value={formData.zipCode}
-                      onChange={handleInputChange}
-                      className={`w-full p-2 border rounded ${formErrors.zipCode ? 'border-red-500' : ''}`}
-                    />
-                    {formErrors.zipCode && <p className="text-red-500 text-sm mt-1">{formErrors.zipCode}</p>}
-                  </div>
-                </div> */}
-  <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Location
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Area
+                  </label>
                   <input
                     type="text"
-                    value={searchAddress}
-                    onChange={(e) => setSearchAddress(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Search for restaurant location"
-                    className="w-full border border-gray-300 rounded pl-10 pr-3 py-2"
+                    value={formData.area}
+                    readOnly
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Area will be filled automatically"
                   />
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSearch}
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                >
-                  <FaMapMarkerAlt />
-                  {loading ? 'Searching...' : 'Find'}
-                </button>
               </div>
-            </div>
-
-            <div className="h-[400px] rounded-lg overflow-hidden border border-gray-300">
-              <MapContainer
-                center={position}
-                zoom={13}
-                scrollWheelZoom={true}
-                className="h-full w-full"
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <LocationMarker position={position} setPosition={setPosition} />
-              </MapContainer>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Address
-              </label>
-              <textarea
-              name='address'
-                value={formData.address}
-                className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
-                rows={2}
-                readOnly
-                placeholder="Address will appear here when you select a location on the map"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Area
-              </label>
-              <input
-                type="text"
-                value={formData.area}
-                readOnly
-                className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50"
-                placeholder="Area will be filled automatically"
-              />
-            </div>
-          </div>
-        
-                
-              </>
             )}
 
             <div>
@@ -559,7 +500,7 @@ const [total, setTotal] = useState(initialTotal);
                 value={formData.notes}
                 onChange={handleInputChange}
                 placeholder="Any special instructions or notes for your order"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded text-sm sm:text-base"
                 rows={3}
               />
             </div>
@@ -570,27 +511,18 @@ const [total, setTotal] = useState(initialTotal);
                 name="paymentMethod"
                 value={formData.paymentMethod}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded text-sm sm:text-base"
               >
                 <option value="cash">Cash on Delivery</option>
                 <option value="card">Credit/Debit Card</option>
               </select>
             </div>
 
-            {/* <button
+            <button
               type="submit"
-              disabled={isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))}
-              className={`w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
-                (isSubmitting || isGettingLocation || (formData.orderType === 'delivery' && (isOutOfZone || !formData.selectedTimeSlot))) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSubmitting ? 'Placing Order...' : 'Place Order'}
-            </button> */}
-              <button
-              type="submit"
-              disabled={isSubmitting }
-              className={`w-full  bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors ${
-                (isSubmitting )? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              disabled={isSubmitting}
+              className={`w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base font-medium ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               }`}
             >
               {isSubmitting ? 'Placing Order...' : 'Place Order'}

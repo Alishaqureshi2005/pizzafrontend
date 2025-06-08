@@ -1,16 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaHome, FaShoppingCart, FaClipboardList, FaSignOutAlt, FaPizzaSlice, FaPrint, FaStore } from 'react-icons/fa';
+import { FaHome, FaShoppingCart, FaClipboardList, FaSignOutAlt, FaPizzaSlice, FaPrint, FaStore, FaBars, FaTimes } from 'react-icons/fa';
 
 const AdminNavbar = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const navLinks = [
+    { to: '/admin', icon: <FaHome />, text: 'Dashboard' },
+    { to: '/admin/orders', icon: <FaClipboardList />, text: 'Orders' },
+    { to: '/admin/menu', icon: <FaShoppingCart />, text: 'Menu Management' },
+    { to: '/admin/restaurants', icon: <FaStore />, text: 'Restaurants' },
+    { to: '/admin/printer', icon: <FaPrint />, text: 'Printer Settings' },
+    { to: '/admin/delivery-zones', icon: <FaPizzaSlice />, text: 'Delivery Zones' },
+  ];
 
   return (
     <nav className="bg-red-600 text-white shadow-lg">
@@ -24,54 +38,36 @@ const AdminNavbar = () => {
             </Link>
           </div>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Link
-              to="/admin"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <button
+              onClick={toggleMobileMenu}
+              className="p-2 rounded-md hover:bg-red-700 focus:outline-none"
             >
-              <FaHome />
-              <span>Dashboard</span>
-            </Link>
-            <Link
-              to="/admin/orders"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
-            >
-              <FaClipboardList />
-              <span>Orders</span>
-            </Link>
-            <Link
-              to="/admin/menu"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
-            >
-              <FaShoppingCart />
-              <span>Menu Management</span>
-            </Link>
-            <Link
-              to="/admin/restaurants"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
-            >
-              <FaStore />
-              <span>Restaurants</span>
-            </Link>
-            <Link
-              to="/admin/printer"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
-            >
-              <FaPrint />
-              <span>Printer Settings</span>
-            </Link>
-            <Link
-              to="/admin/delivery-zones"
-              className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
-            >
-              <FaPizzaSlice />
-              <span>Delivery Zones</span>
-            </Link>
+              {isMobileMenuOpen ? (
+                <FaTimes className="h-6 w-6" />
+              ) : (
+                <FaBars className="h-6 w-6" />
+              )}
+            </button>
           </div>
 
-          {/* Logout Button */}
-          <div className="flex items-center">
+          {/* Desktop Navigation Links */}
+          <div className="hidden md:flex items-center space-x-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
+              >
+                {link.icon}
+                <span>{link.text}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop Logout Button */}
+          <div className="hidden md:flex items-center">
             <button
               onClick={handleLogout}
               className="flex items-center space-x-1 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
@@ -81,6 +77,35 @@ const AdminNavbar = () => {
             </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {link.icon}
+                  <span>{link.text}</span>
+                </Link>
+              ))}
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
+              >
+                <FaSignOutAlt />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
