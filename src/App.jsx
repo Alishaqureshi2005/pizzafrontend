@@ -33,6 +33,7 @@ import AdminDeliveryZones from './pages/AdminDeliveryZones';
 import RestaurantManagement from './pages/admin/RestaurantManagement';
 import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
+import ItemManagement from './components/admin/ItemManagement';
 
 const AppContent = () => {
   const location = useLocation();
@@ -70,6 +71,7 @@ const AppContent = () => {
             <Route path="/admin/printer" element={<AdminPrinter />} />
             <Route path="/admin/delivery-zones" element={<AdminDeliveryZones />} />
             <Route path="/admin/restaurants" element={<RestaurantManagement />} />
+            <Route path="/admin/items" element={<ItemManagement />} />
             <Route path="/admin/*" element={<AdminPanel />} />
             <Route path="/admin/orders/:orderId" element={<OrderDetails />} />
           </Route>

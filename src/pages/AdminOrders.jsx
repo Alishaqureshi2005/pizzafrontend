@@ -130,9 +130,15 @@ const AdminOrders = () => {
                           <div key={item._id}>
                             {item.quantity}x {item.product?.title || 'Product'}
                             {item.customization && (
-                              <span className="text-gray-500">
-                                {' '}({item.customization})
-                              </span>
+                              <div className="text-gray-500 text-xs pl-4">
+                                {item.customization.size && <div>Size: {item.customization.size}</div>}
+                                {item.customization.toppings && item.customization.toppings.length > 0 && (
+                                  <div>Toppings: {item.customization.toppings.join(', ')}</div>
+                                )}
+                                {item.customization.specialInstructions && (
+                                  <div>Notes: {item.customization.specialInstructions}</div>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}

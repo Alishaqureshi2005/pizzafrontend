@@ -340,9 +340,22 @@ const [total, setTotal] = useState(initialTotal);
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h2 className="text-lg sm:text-xl font-semibold mb-4">Order Summary</h2>
           {cartItems.map((item) => (
-            <div key={item.id} className="flex justify-between py-2 border-b text-sm sm:text-base">
-              <span className="flex-1 pr-2">{item.name} x {item.quantity}</span>
-              <span className="whitespace-nowrap">€{(item.price * item.quantity).toFixed(2)}</span>
+            <div key={item.id} className="flex flex-col py-2 border-b text-sm sm:text-base">
+              <div className="flex justify-between">
+                <span className="flex-1 pr-2">{item.name} x {item.quantity}</span>
+                <span className="whitespace-nowrap">€{(item.price * item.quantity).toFixed(2)}</span>
+              </div>
+              {item.customization && (
+                <div className="text-xs text-gray-500 mt-1 pl-4">
+                  {item.customization.size && <div>Size: {item.customization.size}</div>}
+                  {item.customization.toppings && item.customization.toppings.length > 0 && (
+                    <div>Toppings: {item.customization.toppings.join(', ')}</div>
+                  )}
+                  {item.customization.specialInstructions && (
+                    <div>Notes: {item.customization.specialInstructions}</div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           <div className="mt-4 pt-4 border-t space-y-2">
@@ -421,76 +434,76 @@ const [total, setTotal] = useState(initialTotal);
 
             {formData.orderType === 'delivery' && (
               <div className="space-y-3 sm:space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Search Location
-                  </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Location
+              </label>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={searchAddress}
-                        onChange={(e) => setSearchAddress(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Search for restaurant location"
-                        className="w-full border border-gray-300 rounded pl-10 pr-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      />
-                      <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSearch}
-                      disabled={loading}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
-                    >
-                      <FaMapMarkerAlt />
-                      {loading ? 'Searching...' : 'Find'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="h-[300px] sm:h-[400px] rounded-lg overflow-hidden border border-gray-300">
-                  <MapContainer
-                    center={position}
-                    zoom={13}
-                    scrollWheelZoom={true}
-                    className="h-full w-full"
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <LocationMarker position={position} setPosition={setPosition} />
-                  </MapContainer>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Address
-                  </label>
-                  <textarea
-                    name='address'
-                    value={formData.address}
-                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    rows={2}
-                    readOnly
-                    placeholder="Address will appear here when you select a location on the map"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Area
-                  </label>
+                <div className="relative flex-1">
                   <input
                     type="text"
-                    value={formData.area}
-                    readOnly
-                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    placeholder="Area will be filled automatically"
+                    value={searchAddress}
+                    onChange={(e) => setSearchAddress(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Search for restaurant location"
+                        className="w-full border border-gray-300 rounded pl-10 pr-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
+                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={loading}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
+                >
+                  <FaMapMarkerAlt />
+                  {loading ? 'Searching...' : 'Find'}
+                </button>
               </div>
+            </div>
+
+                <div className="h-[300px] sm:h-[400px] rounded-lg overflow-hidden border border-gray-300">
+              <MapContainer
+                center={position}
+                zoom={13}
+                scrollWheelZoom={true}
+                className="h-full w-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <LocationMarker position={position} setPosition={setPosition} />
+              </MapContainer>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Address
+              </label>
+              <textarea
+              name='address'
+                value={formData.address}
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                rows={2}
+                readOnly
+                placeholder="Address will appear here when you select a location on the map"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Area
+              </label>
+              <input
+                type="text"
+                value={formData.area}
+                readOnly
+                    className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="Area will be filled automatically"
+              />
+            </div>
+          </div>
             )}
 
             <div>
@@ -518,7 +531,7 @@ const [total, setTotal] = useState(initialTotal);
               </select>
             </div>
 
-            <button
+              <button
               type="submit"
               disabled={isSubmitting}
               className={`w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base font-medium ${
