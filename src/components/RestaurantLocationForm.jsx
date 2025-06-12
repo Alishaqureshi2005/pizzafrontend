@@ -86,12 +86,12 @@ const RestaurantLocationForm = ({ onSave, initialData }) => {
     try {
       // Add Pakistan and Hyderabad to the search query if not present
       let searchQuery = searchAddress;
-      if (!searchQuery.toLowerCase().includes('pakistan')) {
-        searchQuery += ', Pakistan';
-      }
-      if (!searchQuery.toLowerCase().includes('hyderabad')) {
-        searchQuery += ', Hyderabad';
-      }
+      // if (!searchQuery.toLowerCase().includes('pakistan')) {
+      //   searchQuery += ', Pakistan';
+      // }
+      // if (!searchQuery.toLowerCase().includes('hyderabad')) {
+      //   searchQuery += ', Hyderabad';
+      // }
 
       const result = await locationService.convertAddressToCoordinates(searchQuery);
       

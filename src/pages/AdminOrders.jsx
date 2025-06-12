@@ -93,19 +93,19 @@ const AdminOrders = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Order #
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                     Items
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
                     Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
                     Actions
                   </th>
                 </tr>
@@ -116,15 +116,20 @@ const AdminOrders = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{order._id}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-normal break-words">
                       <div className="text-sm text-gray-900">
-                        {order.user?.name || 'Guest'}
+                        {order.user?.name || order.customerInfo?.name || 'Guest'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {order.user?.email || 'No email'}
+                        {order.user?.email || order.customerInfo?.email || 'No email'}
                       </div>
+                      {order.orderType === 'delivery' && order.deliveryAddress && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          {order.deliveryAddress.address}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-normal break-words">
                       <div className="text-sm text-gray-900">
                         {order.items?.map(item => (
                           <div key={item._id}>

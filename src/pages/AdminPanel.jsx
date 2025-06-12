@@ -51,6 +51,7 @@ const AdminPanel = () => {
       const response = await productApi.getProducts();
       if (response?.data?.data && Array.isArray(response.data.data)) {
         setMenuData(response.data.data);
+        console.log(response.data.data)
       } else {
         setMenuData([]);
         setError('Invalid response format from server');
@@ -756,7 +757,7 @@ const AdminPanel = () => {
                         <div className="flex items-center space-x-4">
                           {item.image && (
                             <img
-                              src={`${API_URL}/uploads/${item.image}`}
+                              src={`${API_URL.replace('/api', '')}/uploads/${item.image}`}
                               alt={item.name}
                               className="w-16 h-16 object-cover rounded-lg"
                             />

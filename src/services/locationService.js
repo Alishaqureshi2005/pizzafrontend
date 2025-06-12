@@ -3,81 +3,32 @@ import axios from 'axios';
 class LocationService {
   async convertAddressToCoordinates(address) {
     try {
-      // Clean and format the address
       let searchQuery = address.trim();
-      
-      // Remove any special characters that might interfere with the search
-      searchQuery = searchQuery.replace(/[^\w\s,.-]/g, '');
-      
-      // Ensure the address includes Pakistan and Hyderabad if not present
-      if (!searchQuery.toLowerCase().includes('pakistan')) {
-        searchQuery += ', Pakistan';
-      }
-      if (!searchQuery.toLowerCase().includes('hyderabad')) {
-        searchQuery += ', Hyderabad';
-      }
-
+  
+      // Optional: less aggressive cleanup
+      searchQuery = searchQuery.replace(/[^\w\s,#/().-]/g, '');
+  
       const encodedAddress = encodeURIComponent(searchQuery);
-      
-      // Add delay to prevent rate limiting
+  
+      // Optional: Respectful delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Make the geocoding request with additional parameters
+  
+      const headers = { 'User-Agent': 'YourAppName/1.0 (your-email@example.com)' };
+  
+      // Try full international search
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/search?` +
         `format=json&` +
         `q=${encodedAddress}&` +
-        `countrycodes=pk&` + // Restrict to Pakistan
         `limit=5&` +
-        `addressdetails=1&` +
-        `bounded=1&` + // Use bounded search
-        `viewbox=60.0,37.0,75.0,24.0&` + // Rough bounding box for Pakistan
-        `dedupe=1&` + // Remove duplicates
-        `polygon=1&` + // Include polygon data
-        `extratags=1` // Include extra tags
+        `addressdetails=1`,
+        { headers }
       );
-
+  
       if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-        // Try a more flexible search without the bounding box
-        const fallbackResponse = await axios.get(
-          `https://nominatim.openstreetmap.org/search?` +
-          `format=json&` +
-          `q=${encodedAddress}&` +
-          `countrycodes=pk&` +
-          `limit=5&` +
-          `addressdetails=1`
-        );
-
-        if (!fallbackResponse.data || !Array.isArray(fallbackResponse.data) || fallbackResponse.data.length === 0) {
-          throw new Error('No locations found. Please try a more specific address or use the map to select the location manually.');
-        }
-
-        // Use the first result from the fallback search
-        const result = fallbackResponse.data[0];
-        return {
-          success: true,
-          data: {
-            coordinates: {
-              latitude: parseFloat(result.lat),
-              longitude: parseFloat(result.lon)
-            },
-            address: result.display_name,
-            area: result.address?.suburb || 
-                  result.address?.neighbourhood || 
-                  result.address?.residential ||
-                  result.address?.county ||
-                  result.address?.city ||
-                  result.address?.town ||
-                  result.address?.village ||
-                  'Unknown Area',
-            boundingBox: result.boundingbox,
-            placeId: result.place_id,
-            osmId: result.osm_id,
-            addressDetails: result.address
-          }
-        };
+        throw new Error('No locations found. Try a more specific address.');
       }
-
+  
       const result = response.data[0];
       return {
         success: true,
@@ -87,14 +38,7 @@ class LocationService {
             longitude: parseFloat(result.lon)
           },
           address: result.display_name,
-          area: result.address?.suburb || 
-                result.address?.neighbourhood || 
-                result.address?.residential ||
-                result.address?.county ||
-                result.address?.city ||
-                result.address?.town ||
-                result.address?.village ||
-                'Unknown Area',
+          area: result.address?.suburb || result.address?.city || result.address?.state || 'Unknown Area',
           boundingBox: result.boundingbox,
           placeId: result.place_id,
           osmId: result.osm_id,
@@ -103,28 +47,18 @@ class LocationService {
       };
     } catch (error) {
       console.error('Geocoding error details:', error);
-      
-      if (error.response) {
-        // Handle specific API error responses
-        if (error.response.status === 429) {
-          throw new Error('Too many requests. Please try again in a few moments.');
-        }
-        if (error.response.status === 400) {
-          throw new Error('Invalid address format. Please check the address and try again.');
-        }
+  
+      if (error.response && error.response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
       }
-
-      // Handle network or other errors
-      if (error.message.includes('Network Error')) {
-        throw new Error('Network error. Please check your internet connection and try again.');
-      }
-
+  
       return {
         success: false,
-        error: error.message || 'Failed to convert address to coordinates. Please try a more specific address or use the map to select the location manually.'
+        error: error.message || 'Geocoding failed. Try again later.'
       };
     }
   }
+  
 
   async validateLocation(coordinates) {
     try {

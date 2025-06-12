@@ -1,141 +1,88 @@
-import React from 'react';
-import { FaTimes } from 'react-icons/fa';
+import React, { useRef } from 'react';
 
 const OrderReceipt = ({ order, onClose }) => {
+  const receiptRef = useRef();
+
   const handlePrint = () => {
-    window.print();
+    const printContents = receiptRef.current.innerHTML;
+    const newWindow = window.open('', '', 'height=600,width=800');
+    newWindow.document.write('<html><head><title>Order Receipt</title>');
+    newWindow.document.write('<style>body{font-family:sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;text-align:left;} h2{color:#dc2626;}</style>');
+    newWindow.document.write('</head><body>');
+    newWindow.document.write(printContents);
+    newWindow.document.write('</body></html>');
+    newWindow.document.close();
+    newWindow.print();
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const formatAddress = (address) => {
-    if (!address) return 'N/A';
-    return `${address.street}, ${address.city}, ${address.postalCode}, ${address.country}`;
-  };
+  if (!order) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Order Receipt</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <FaTimes />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white p-6 rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto relative">
+        <div ref={receiptRef}>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Order Receipt</h2>
 
-        <div className="space-y-4">
-          {/* Restaurant Info */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-red-600">Pizza House</h1>
-            <p className="text-gray-600">123 Main Street, City</p>
-            <p className="text-gray-600">Phone: (123) 456-7890</p>
-          </div>
+          <div className="mb-4">
+            <p><strong>Order ID:</strong> {order._id}</p>
+            <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleString()}</p>
+            <p><strong>Customer:</strong> {order.user?.name || order.customerInfo?.name || 'Guest'} ({order.user?.email || order.customerInfo?.email || 'N/A'})</p>
+            <p><strong>Status:</strong> {order.status}</p>
+            <p><strong>Order Type:</strong> {order.orderType}</p>
 
-          {/* Order Info */}
-          <div className="border-t border-b py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Order #</p>
-                <p className="font-medium">{order._id}</p>
+            {order.orderType === 'delivery' && order.deliveryAddress && (
+              <div className="mt-2">
+                <p><strong>Delivery Address:</strong></p>
+                <p>{order.deliveryAddress.address}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Date</p>
-                <p className="font-medium">{formatDate(order.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Order Type</p>
-                <p className="font-medium capitalize">{order.orderType}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Status</p>
-                <p className="font-medium capitalize">{order.status}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Customer Info */}
-          <div className="border-b pb-4">
-            <h3 className="font-semibold mb-2">Customer Information</h3>
-            <p>{order.user?.name || 'N/A'}</p>
-            <p>{order.user?.email || 'N/A'}</p>
-            {order.orderType === 'delivery' && (
-              <p>{formatAddress(order.deliveryAddress)}</p>
             )}
           </div>
 
-          {/* Order Items */}
-          <div className="border-b pb-4">
-            <h3 className="font-semibold mb-2">Order Items</h3>
-            <div className="space-y-2">
-              {order.items.map((item) => (
-                <div key={item._id} className="flex justify-between">
-                  <div>
-                    <p className="font-medium">{item.product?.title || 'Product'}</p>
-                    <p className="text-sm text-gray-600">
-                      {item.quantity}x ${item.price.toFixed(2)}
-                      {item.customization && (
-                        <span>
-                          {item.customization.size && ` | Size: ${item.customization.size}`}
-                          {item.customization.toppings && item.customization.toppings.length > 0 && 
-                            ` | Toppings: ${item.customization.toppings.join(', ')}`}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <hr className="mb-4" />
 
-          {/* Order Summary */}
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>${order.totalPrice.toFixed(2)}</span>
-            </div>
-            {order.deliveryCharge > 0 && (
-              <div className="flex justify-between">
-                <span>Delivery Charge</span>
-                <span>${order.deliveryCharge.toFixed(2)}</span>
+            {order.items.map((item, index) => (
+              <div key={index} className="border-b pb-2">
+                <p><strong>{item.quantity}x</strong> {item.product?.title || 'Item'}</p>
+                {item.customization?.size && (
+                  <p className="text-sm text-gray-600">Size: {item.customization.size}</p>
+                )}
+                {item.customization?.toppings?.length > 0 && (
+                  <p className="text-sm text-gray-600">
+                    Toppings: {item.customization.toppings.join(', ')}
+                  </p>
+                )}
+                {item.customization?.specialInstructions && (
+                  <p className="text-sm text-gray-600">Notes: {item.customization.specialInstructions}</p>
+                )}
+                <p className="text-sm text-gray-600">€{item.price.toFixed(2)} each</p>
               </div>
-            )}
-            <div className="flex justify-between font-bold text-lg pt-2 border-t">
-              <span>Total</span>
-              <span>${order.finalPrice.toFixed(2)}</span>
-            </div>
+            ))}
           </div>
 
-          {/* Payment Info */}
-          <div className="border-t pt-4">
-            <p className="text-sm text-gray-600">Payment Method</p>
-            <p className="font-medium capitalize">{order.paymentMethod}</p>
-          </div>
+          <hr className="my-4" />
 
-          {/* Thank You Message */}
-          <div className="text-center mt-6">
-            <p className="text-gray-600">Thank you for your order!</p>
-            <p className="text-sm text-gray-500">Please keep this receipt for your records</p>
+          <div>
+            <p><strong>Subtotal:</strong> €{(order.totalPrice || 0).toFixed(2)}</p>
+            <p><strong>Delivery Fee:</strong> €{(order.deliveryCharge || 0).toFixed(2)}</p>
+            <p><strong>Total:</strong> €{(order.finalPrice || 0).toFixed(2)}</p>
+            <p><strong>Payment Method:</strong> {order.paymentMethod || 'N/A'}</p>
           </div>
         </div>
 
+        {/* Action Buttons */}
         <div className="mt-6 flex justify-end space-x-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            Close
-          </button>
           <button
             onClick={handlePrint}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            Print Receipt
+            Print
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Close
           </button>
         </div>
       </div>
@@ -143,4 +90,4 @@ const OrderReceipt = ({ order, onClose }) => {
   );
 };
 
-export default OrderReceipt; 
+export default OrderReceipt;

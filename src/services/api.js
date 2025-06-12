@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://159.65.174.111/api';
+const API_URL =import.meta.env.VITE_API_URL;
 
 // const API_URL = 'https://pizzabackend-i6bv.onrender.com/api';
 

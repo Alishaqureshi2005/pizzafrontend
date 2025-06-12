@@ -1,0 +1,25 @@
+@media print {
+    body {
+      background: white !important;
+      margin: 0;
+      padding: 0;
+    }
+  
+    .print-hidden {
+      display: none !important;
+    }
+  
+    .print-receipt {
+      position: static !important;
+      background: white !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      width: 100% !important;
+      max-width: none !important;
+    }
+  
+    .print-receipt * {
+      color: black !important;
+    }
+  }
+  

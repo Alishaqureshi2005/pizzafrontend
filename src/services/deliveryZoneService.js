@@ -1,15 +1,48 @@
-import axios from 'axios';
+import adminApi from './adminApi';
 
 const API_URL = '/api/delivery-zones';
 
-
 export const deliveryZoneService = {
+  getAllDeliveryZones: async () => {
+    try {
+      const response = await adminApi.get('/delivery-zones');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 
+  createDeliveryZone: async (zoneData) => {
+    try {
+      const response = await adminApi.post('/delivery-zones', zoneData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  updateDeliveryZone: async (id, zoneData) => {
+    try {
+      const response = await adminApi.put(`/delivery-zones/${id}`, zoneData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  deleteDeliveryZone: async (id) => {
+    try {
+      const response = await adminApi.delete(`/delivery-zones/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 
   // Get delivery fee for an address
   getDeliveryFee: async (address) => {
     try {
-      const response = await axios.post(`${API_URL}/get-delivery-fee`, { address });
+      const response = await adminApi.post('/delivery-zones/get-delivery-fee', { address });
       return response.data.data;
     } catch (error) {
       console.error('Error getting delivery fee:', error);
@@ -20,7 +53,7 @@ export const deliveryZoneService = {
   // Admin functions
   createZone: async (zoneData, token) => {
     try {
-      const response = await axios.post(API_URL, zoneData, {
+      const response = await adminApi.post('/delivery-zones', zoneData, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -34,7 +67,7 @@ export const deliveryZoneService = {
 
   updateZone: async (zoneId, updateData, token) => {
     try {
-      const response = await axios.put(`${API_URL}/${zoneId}`, updateData, {
+      const response = await adminApi.put(`/delivery-zones/${zoneId}`, updateData, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -48,7 +81,7 @@ export const deliveryZoneService = {
 
   deleteZone: async (zoneId, token) => {
     try {
-      const response = await axios.delete(`${API_URL}/${zoneId}`, {
+      const response = await adminApi.delete(`/delivery-zones/${zoneId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -63,7 +96,7 @@ export const deliveryZoneService = {
   // Update time slot for a delivery zone
   updateTimeSlot: async (zoneId, slotId, updateData, token) => {
     try {
-      const response = await axios.put(`${API_URL}/${zoneId}/time-slots/${slotId}`, updateData, {
+      const response = await adminApi.put(`/delivery-zones/${zoneId}/time-slots/${slotId}`, updateData, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

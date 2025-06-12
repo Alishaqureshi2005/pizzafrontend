@@ -209,9 +209,7 @@ const OrderDetails = () => {
                 <div>
                   <p className="text-sm text-gray-600">Delivery Address</p>
                   <p className="font-medium">
-                    {order.deliveryAddress.street}<br />
-                    {order.deliveryAddress.city}, {order.deliveryAddress.postalCode}<br />
-                    {order.deliveryAddress.country}
+                    {order.deliveryAddress.address}
                   </p>
                 </div>
               )}

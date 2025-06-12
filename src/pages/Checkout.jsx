@@ -5,7 +5,9 @@ import orderService from '../services/orderService';
 // import { deliveryZoneService } from '../services/deliveryZoneService';
 import { validateOrderForm } from '../utils/validation';
 import { FaMapMarkerAlt, FaClock, FaSearch } from 'react-icons/fa';
+// import { locationService } from '../services/locationService';
 import { locationService } from '../services/locationService';
+
 import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 import restaurantService from '../services/restaurantService';
 import getDistanceFromLatLonInKm from '../utils/distance';
@@ -48,6 +50,8 @@ const [total, setTotal] = useState(initialTotal);
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const { zones, error } = useSelector((state) => state.deliveryZones);
+  const [minimumOrderError, setMinimumOrderError] = useState('');
+
   useEffect(() => {
     dispatch(fetchDeliveryZones());
   }, [dispatch]);
@@ -80,10 +84,18 @@ const [total, setTotal] = useState(initialTotal);
     if (formData.orderType === 'delivery') {
       const newTotal = subtotal + deliveryFee;
       setTotal(newTotal);
+
+      // Check minimum order price
+      if (closestZone && newTotal < closestZone.minimumOrderPrice) {
+        setMinimumOrderError(`Minimum order amount for this zone is €${closestZone.minimumOrderPrice.toFixed(2)}`);
+      } else {
+        setMinimumOrderError('');
+      }
     } else {
       setTotal(subtotal);
+      setMinimumOrderError('');
     }
-  }, [deliveryFee, formData.orderType, subtotal]);
+  }, [deliveryFee, formData.orderType, subtotal, closestZone]);
 
   const handleSearch = async () => {
     if (!searchAddress.trim()) {
@@ -94,12 +106,12 @@ const [total, setTotal] = useState(initialTotal);
     setLoading(true);
     try {
       let searchQuery = searchAddress;
-      if (!searchQuery.toLowerCase().includes('pakistan')) {
-        searchQuery += ', Pakistan';
-      }
-      if (!searchQuery.toLowerCase().includes('hyderabad')) {
-        searchQuery += ', Hyderabad';
-      }
+      // if (!searchQuery.toLowerCase().includes('pakistan')) {
+      //   searchQuery += ', Pakistan';
+      // }
+      // if (!searchQuery.toLowerCase().includes('hyderabad')) {
+      //   searchQuery += ', Hyderabad';
+      // }
 
       const result = await locationService.convertAddressToCoordinates(searchQuery);
       
@@ -128,11 +140,18 @@ const [total, setTotal] = useState(initialTotal);
       setClosestZone(newClosestZone);
       setDeliveryFee(newClosestZone ? newClosestZone.deliveryFee : 0);
 
+      // Check minimum order price
+      if (newClosestZone && subtotal < newClosestZone.minimumOrderPrice) {
+        setMinimumOrderError(`Minimum order amount for this zone is €${newClosestZone.minimumOrderPrice.toFixed(2)}`);
+      } else {
+        setMinimumOrderError('');
+      }
+
       // Update form data with address and area
       setFormData(prev => ({
         ...prev,
         address,
-        city: area, // Set the area as the city
+        city: area,
       }));
 
       toast.success('Location found! You can adjust it by clicking on the map.');
@@ -195,6 +214,13 @@ const [total, setTotal] = useState(initialTotal);
     console.log('Submit button clicked');
     setIsSubmitting(true);
     setFormErrors({});
+
+    // Check minimum order price
+    if (formData.orderType === 'delivery' && closestZone && total < closestZone.minimumOrderPrice) {
+      toast.error(`Minimum order amount for this zone is €${closestZone.minimumOrderPrice.toFixed(2)}`);
+      setIsSubmitting(false);
+      return;
+    }
 
     // Log form data for debugging
     console.log('Form Data:', formData);
@@ -543,6 +569,22 @@ const [total, setTotal] = useState(initialTotal);
           </div>
         </form>
       </div>
+
+      {/* Add minimum order price warning */}
+      {minimumOrderError && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">{minimumOrderError}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

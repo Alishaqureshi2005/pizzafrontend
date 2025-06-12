@@ -3,6 +3,7 @@ import { FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { productService } from '../services/productService';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 const Menu = () => {
   const [activeCategory, setActiveCategory] = useState('all');
@@ -197,7 +198,8 @@ const Menu = () => {
             >
               <div className="relative h-48">
                 <img
-                  src={item.image || '/images/placeholder.jpg'}
+                              src={`${API_URL.replace('/api', '')}/uploads/${item.image}`}
+                              // src={item.image || '/images/placeholder.jpg'}
                   alt={item.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {

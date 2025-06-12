@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
@@ -18,7 +18,9 @@ const AdminDeliveryZones = () => {
     name: '',
     distance: '',
     deliveryFee: '',
-    estimatedTime: ''
+    minimumOrderPrice: '',
+    estimatedTime: '',
+    isActive: true
   });
 
   useEffect(() => {
@@ -32,39 +34,27 @@ const AdminDeliveryZones = () => {
   }, [error]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const zoneData = {
-        name: formData.name,
-        distance: parseFloat(formData.distance),
-        deliveryFee: parseFloat(formData.deliveryFee),
-        estimatedTime: parseInt(formData.estimatedTime),
-      };
+    
+    const zoneData = {
+      ...formData,
+      distance: parseFloat(formData.distance),
+      deliveryFee: parseFloat(formData.deliveryFee),
+      minimumOrderPrice: parseFloat(formData.minimumOrderPrice),
+      estimatedTime: parseInt(formData.estimatedTime)
+    };
 
+    try {
       if (editingZone) {
-        await dispatch(updateDeliveryZone({
-          zoneId: editingZone._id,
-          zoneData
-        })).unwrap();
+        await dispatch(updateDeliveryZone({ id: editingZone._id, zoneData })).unwrap();
         toast.success('Delivery zone updated successfully');
       } else {
         await dispatch(createDeliveryZone(zoneData)).unwrap();
@@ -74,17 +64,19 @@ const AdminDeliveryZones = () => {
       setEditingZone(null);
       resetForm();
     } catch (error) {
-      toast.error(error.message || 'An error occurred');
+      toast.error(error.message || 'Failed to save delivery zone');
     }
   };
 
   const handleEdit = (zone) => {
     setEditingZone(zone);
     setFormData({
-      name: zone.name || '',
-      distance: (zone.radius || 0).toString(),
-      deliveryFee: (zone.deliveryFee || 0).toString(),
-      estimatedTime: (zone.estimatedTime || 30).toString(),
+      name: zone.name,
+      distance: zone.distance.toString(),
+      deliveryFee: zone.deliveryFee.toString(),
+      minimumOrderPrice: zone.minimumOrderPrice.toString(),
+      estimatedTime: zone.estimatedTime.toString(),
+      isActive: zone.isActive
     });
     setIsModalOpen(true);
   };
@@ -105,10 +97,16 @@ const AdminDeliveryZones = () => {
       name: '',
       distance: '',
       deliveryFee: '',
-      estimatedTime: ''
+      minimumOrderPrice: '',
+      estimatedTime: '',
+      isActive: true
     });
+    setEditingZone(null);
   };
 
+  if (loading) {
+    return <div className="text-center py-4">Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -127,125 +125,194 @@ const AdminDeliveryZones = () => {
         </button>
       </div>
 
-      {loading ? (
-        <div className="text-center">Loading...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {zones.map((zone) => {
-            return (
-              <div
-                key={zone._id}
-                className="bg-white rounded-lg shadow-md p-4"
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">
+          {editingZone ? 'Edit Delivery Zone' : 'Create New Delivery Zone'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Zone Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Distance (km)
+              </label>
+              <input
+                type="number"
+                name="distance"
+                value={formData.distance}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                min="0"
+                step="0.1"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Delivery Fee (€)
+              </label>
+              <input
+                type="number"
+                name="deliveryFee"
+                value={formData.deliveryFee}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Minimum Order Price (€)
+              </label>
+              <input
+                type="number"
+                name="minimumOrderPrice"
+                value={formData.minimumOrderPrice}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Estimated Delivery Time (minutes)
+              </label>
+              <input
+                type="number"
+                name="estimatedTime"
+                value={formData.estimatedTime}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                min="0"
+                required
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">
+                Active
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-4">
+            {editingZone && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
-                <h2 className="text-xl font-semibold mb-2">{zone.name}</h2>
-                <p className="text-gray-600 mb-1">Distance: {zone.distance || 0} km</p>
-                <p className="text-gray-600 mb-1">Delivery Fee: €{zone.deliveryFee || 0}</p>
-                <p className="text-gray-600 mb-1">Estimated Time: {zone.estimatedTime || 30} min</p>
-                
-                <div className="flex justify-end space-x-2">
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              {editingZone ? 'Update Zone' : 'Create Zone'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Zone Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Distance
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Delivery Fee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Min. Order
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Est. Time
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {zones.map((zone) => (
+              <tr key={zone._id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {zone.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {zone.distance} km
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  €{zone.deliveryFee.toFixed(2)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  €{zone.minimumOrderPrice.toFixed(2)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {zone.estimatedTime} min
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    zone.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {zone.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
                     onClick={() => handleEdit(zone)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                    className="text-red-600 hover:text-red-900 mr-4"
                   >
-                    <FaEdit className="inline mr-1" />
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(zone._id)}
-                    className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                    className="text-red-600 hover:text-red-900"
                   >
-                    <FaTrash className="inline mr-1" />
                     Delete
                   </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
-            <h2 className="text-xl font-bold mb-4">
-              {editingZone ? 'Edit Delivery Zone' : 'Add New Delivery Zone'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Zone Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Distance (km)</label>
-                  <input
-                    type="number"
-                    name="distance"
-                    value={formData.distance}
-                    onChange={handleInputChange}
-                    step="0.1"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Delivery Fee (€)</label>
-                  <input
-                    type="number"
-                    name="deliveryFee"
-                    value={formData.deliveryFee}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Estimated Time (minutes)</label>
-                <input
-                  type="number"
-                  name="estimatedTime"
-                  value={formData.estimatedTime}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setEditingZone(null);
-                    resetForm();
-                  }}
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  {editingZone ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

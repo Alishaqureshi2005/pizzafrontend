@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { deliveryService } from '../../services/deliveryService';
 import { toast } from 'react-toastify';
+import adminApi from '../../services/adminApi';
 
 // Initial state
 const initialState = {
@@ -19,8 +20,13 @@ const initialState = {
 // Async thunks
 export const fetchDeliveryZones = createAsyncThunk(
   'deliveryZones/fetchAll',
-  async () => {
-    return await deliveryService.getDeliveryZones();
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await adminApi.get('/delivery-zones');
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch delivery zones');
+    }
   }
 );
 
@@ -29,32 +35,34 @@ export const createDeliveryZone = createAsyncThunk(
   'deliveryZones/create',
   async (zoneData, { rejectWithValue }) => {
     try {
-      return await deliveryService.createDeliveryZone(zoneData);
+      const response = await adminApi.post('/delivery-zones', zoneData);
+      return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.error || 'Failed to create delivery zone');
     }
   }
 );
 
 export const updateDeliveryZone = createAsyncThunk(
   'deliveryZones/update',
-  async ({ zoneId, zoneData }, { rejectWithValue }) => {
+  async ({ id, zoneData }, { rejectWithValue }) => {
     try {
-      return await deliveryService.updateDeliveryZone(zoneId, zoneData);
+      const response = await adminApi.put(`/delivery-zones/${id}`, zoneData);
+      return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.error || 'Failed to update delivery zone');
     }
   }
 );
 
 export const deleteDeliveryZone = createAsyncThunk(
   'deliveryZones/delete',
-  async (zoneId, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      await deliveryService.deleteDeliveryZone(zoneId);
-      return zoneId;
+      await adminApi.delete(`/delivery-zones/${id}`);
+      return id;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.error || 'Failed to delete delivery zone');
     }
   }
 );
@@ -128,8 +136,7 @@ const deliveryZoneSlice = createSlice({
       })
       .addCase(fetchDeliveryZones.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
-        toast.error('Failed to fetch delivery zones');
+        state.error = action.payload;
       })
 
       // Create zone (Admin)
