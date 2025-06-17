@@ -6,7 +6,7 @@ export const cartApi = {
   getCart: async () => {
     try {
       const response = await api.get('/cart');
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error fetching cart:', error.response?.data || error.message);
       throw error;
@@ -40,8 +40,7 @@ export const cartApi = {
           quantity: Number(item.quantity) || 0
         })) || [],
         specialInstructions: itemData.specialInstructions || '',
-        quantity: Number(itemData.quantity) || 1,
-        price: Number(itemData.price) || 0
+        quantity: Number(itemData.quantity) || 1
       };
 
       console.log('Sending cart request:', JSON.stringify(requestData, null, 2));
@@ -49,19 +48,7 @@ export const cartApi = {
       const response = await api.post('/cart/items', requestData);
       console.log('Cart API Response:', response.data);
 
-      // Normalize response format
-      if (response.data) {
-        return {
-          success: true,
-          data: {
-            items: Array.isArray(response.data.items) ? response.data.items : [response.data],
-            total: Number(response.data.totalPrice || response.data.total || 0),
-            _id: response.data._id
-          }
-        };
-      }
-
-      throw new Error('Invalid response from server');
+      return response;
     } catch (error) {
       console.error('Error adding item to cart:', {
         message: error.message,
@@ -92,16 +79,9 @@ export const cartApi = {
   updateCartItem: async (itemId, itemData) => {
     try {
       const response = await api.put(`/cart/items/${itemId}`, {
-        quantity: itemData.quantity,
-        customization: {
-          size: itemData.size,
-          crust: itemData.crust,
-          toppings: itemData.toppings,
-          extraItems: itemData.extraItems,
-          specialInstructions: itemData.specialInstructions
-        }
+        quantity: Number(itemData.quantity) || 1
       });
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error updating cart item:', error.response?.data || error.message);
       throw error;
@@ -112,8 +92,13 @@ export const cartApi = {
   // @access  Private
   removeFromCart: async (itemId) => {
     try {
+      if (!itemId) {
+        throw new Error('Item ID is required');
+      }
+      console.log('Removing item with ID:', itemId);
       const response = await api.delete(`/cart/items/${itemId}`);
-      return response.data;
+      console.log('Remove response:', response.data);
+      return response;
     } catch (error) {
       console.error('Error removing item from cart:', error.response?.data || error.message);
       throw error;
@@ -125,7 +110,7 @@ export const cartApi = {
   clearCart: async () => {
     try {
       const response = await api.delete('/cart');
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error clearing cart:', error.response?.data || error.message);
       throw error;

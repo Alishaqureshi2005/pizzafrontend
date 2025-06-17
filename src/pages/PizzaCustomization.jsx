@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
-import { addItemToCart } from '../store/slices/cartSlice';
+import { addToCart } from '../store/slices/cartSlice';
 import { productService } from '../services/productService';
 import cartService from '../services/cartService';
 import SizeSelector from '../components/pizza-customization/SizeSelector';
@@ -29,6 +29,9 @@ const Content = styled.div`
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 2rem;
+   @media (max-width: 768px) {
+   grid-template-columns: 1fr ;
+   }
 `;
 
 const CustomizationSection = styled.div`
@@ -371,13 +374,11 @@ const PizzaCustomization = () => {
 
   const handleAddToCart = async () => {
     try {
+      setIsAddingToCart(true);
+
       // Validate required selections
-      if (!selectedSize) {
-        toast.error('Please select a size');
-        return;
-      }
-      if (!selectedCrust) {
-        toast.error('Please select a crust');
+      if (!validateSelections()) {
+        setIsAddingToCart(false);
         return;
       }
 
@@ -386,9 +387,9 @@ const PizzaCustomization = () => {
         .flat()
         .filter(topping => topping.quantity > 0)
         .map(topping => ({
-            id: topping.id || topping._id,
-            name: topping.name,
-            price: Number(topping.price),
+          id: topping.id || topping._id,
+          name: topping.name,
+          price: Number(topping.price),
           quantity: Number(topping.quantity)
         }));
 
@@ -397,9 +398,9 @@ const PizzaCustomization = () => {
         .flat()
         .filter(item => item.quantity > 0)
         .map(item => ({
-            id: item.id || item._id,
-            name: item.name,
-            price: Number(item.price),
+          id: item.id || item._id,
+          name: item.name,
+          price: Number(item.price),
           quantity: Number(item.quantity)
         }));
 
@@ -411,34 +412,13 @@ const PizzaCustomization = () => {
         toppings: selectedToppings,
         extraItems: selectedExtraItems,
         quantity: quantity,
-        specialInstructions: specialInstructions || '',
-        customization: {
-          size: selectedSize,
-          crust: selectedCrust,
-          toppings: selectedToppings,
-          extraItems: selectedExtraItems
-        }
+        specialInstructions: specialInstructions || ''
       };
 
-      console.log('Sending cart request:', cartItem);
+      console.log('Adding to cart:', cartItem);
 
-      // Try to fetch the product first to validate it exists
-      try {
-        const productResponse = await productService.getProduct(productId);
-        if (!productResponse) {
-          throw new Error('Product not found');
-        }
-      } catch (error) {
-        console.error('Error validating product:', error);
-        // If product not found, use the product data we already have
-        if (!product) {
-          toast.error('Product not found or no longer available');
-          return;
-        }
-      }
-
-      // Add to cart using the cart service
-      const result = await cartService.addToCart(cartItem);
+      // Dispatch the addToCart action
+      const result = await dispatch(addToCart(cartItem)).unwrap();
       
       if (result.success) {
         toast.success('Added to cart successfully!');
@@ -459,6 +439,8 @@ const PizzaCustomization = () => {
       } else {
         toast.error(error.message || 'Failed to add to cart. Please try again.');
       }
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 

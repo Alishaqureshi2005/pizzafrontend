@@ -1,33 +1,24 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { cartApi } from '../../services/cartApi';
-import { toast } from 'react-toastify';
-import { deliveryZoneService } from '../../services/deliveryZoneService';
 
-// Async thunks
 export const fetchCart = createAsyncThunk(
   'cart/fetchCart',
   async (_, { rejectWithValue }) => {
     try {
       const response = await cartApi.getCart();
-      return response;
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
-export const addItemToCart = createAsyncThunk(
-  'cart/addItem',
-  async (itemData, { rejectWithValue }) => {
+export const addToCart = createAsyncThunk(
+  'cart/addToCart',
+  async (cartItem, { rejectWithValue }) => {
     try {
-      const response = await cartApi.addToCart(itemData);
-      
-      // Validate response format
-      if (!response || (!response.success && !response.data)) {
-        throw new Error('Invalid response format from server');
-      }
-      
-      return response;
+      const response = await cartApi.addToCart(cartItem);
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -35,11 +26,11 @@ export const addItemToCart = createAsyncThunk(
 );
 
 export const updateCartItem = createAsyncThunk(
-  'cart/updateItem',
-  async ({ itemId, itemData }, { rejectWithValue }) => {
+  'cart/updateCartItem',
+  async ({ itemId, quantity }, { rejectWithValue }) => {
     try {
-      const response = await cartApi.updateCartItem(itemId, itemData);
-      return response;
+      const response = await cartApi.updateCartItem(itemId, { quantity });
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -47,11 +38,11 @@ export const updateCartItem = createAsyncThunk(
 );
 
 export const removeFromCart = createAsyncThunk(
-  'cart/removeItem',
+  'cart/removeFromCart',
   async (itemId, { rejectWithValue }) => {
     try {
       const response = await cartApi.removeFromCart(itemId);
-      return response;
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -59,53 +50,33 @@ export const removeFromCart = createAsyncThunk(
 );
 
 export const clearCart = createAsyncThunk(
-  'cart/clear',
+  'cart/clearCart',
   async (_, { rejectWithValue }) => {
     try {
       const response = await cartApi.clearCart();
-      return response;
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
-export const checkDeliveryAvailability = createAsyncThunk(
-  'cart/checkDeliveryAvailability',
-  async ({ latitude, longitude }) => {
-    return await deliveryZoneService.checkDeliveryAvailability(latitude, longitude);
-  }
-);
-
-const initialState = {
-  items: [],
-  total: 0,
-  deliveryFee: 0,
-  loading: false,
-  error: null,
-  isDeliveryZoneValid: false,
-  selectedTimeSlot: null,
-  deliveryZone: null
-};
-
 const cartSlice = createSlice({
   name: 'cart',
-  initialState,
+  initialState: {
+    items: [],
+    total: 0,
+    deliveryFee: 0,
+    loading: false,
+    error: null
+  },
   reducers: {
-    setDeliveryFee: (state, action) => {
-      state.deliveryFee = action.payload;
-      state.total = calculateTotal(state.items, state.deliveryFee);
-    },
-    setDeliveryZoneValid: (state, action) => {
-      state.isDeliveryZoneValid = action.payload;
-    },
-    setTimeSlot: (state, action) => {
-      state.selectedTimeSlot = action.payload;
-    },
-    setDeliveryZone: (state, action) => {
-      state.deliveryZone = action.payload;
-    },
-    clearError: (state) => {
+    // Manual reset reducer
+    resetCart: (state) => {
+      state.items = [];
+      state.total = 0;
+      state.deliveryFee = 0;
+      state.loading = false;
       state.error = null;
     }
   },
@@ -118,97 +89,33 @@ const cartSlice = createSlice({
       })
       .addCase(fetchCart.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.data?.items || [];
-        state.total = action.payload.data?.totalPrice || 0;
+        if (action.payload.success) {
+          state.items = action.payload.data.items || [];
+          state.total = action.payload.data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        toast.error('Failed to fetch cart');
       })
-      // Add Item
-      .addCase(addItemToCart.pending, (state) => {
+      
+      // Add to Cart
+      .addCase(addToCart.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(addItemToCart.fulfilled, (state, action) => {
+      .addCase(addToCart.fulfilled, (state, action) => {
         state.loading = false;
-        state.error = null;
-        
-        // Handle API response format
-        if (action.payload && (action.payload.success || action.payload.data)) {
-          const cartData = action.payload.data || action.payload;
-          
-          // Update cart state with proper validation
-          if (Array.isArray(cartData.items)) {
-            state.items = cartData.items;
-          } else if (cartData.items) {
-            state.items = [cartData.items];
-          } else {
-            state.items = [];
-          }
-          
-          // Update total with proper validation
-          state.total = Number(cartData.total || cartData.totalPrice || 0);
-          if (isNaN(state.total)) {
-            state.total = calculateTotal(state.items, state.deliveryFee);
-          }
-          
-          toast.success('Added to cart successfully');
-        } else {
-          state.error = 'Invalid response format from server';
-          toast.error(state.error);
+        if (action.payload.success) {
+          state.items = action.payload.data.items || [];
+          state.total = action.payload.data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         }
       })
-      .addCase(addItemToCart.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || 'Failed to add item to cart';
-        toast.error(state.error);
-      })
-      // Update Item
-      .addCase(updateCartItem.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateCartItem.fulfilled, (state, action) => {
-        state.loading = false;
-        state.items = action.payload.data?.items || [];
-        state.total = action.payload.data?.totalPrice || 0;
-      })
-      .addCase(updateCartItem.rejected, (state, action) => {
+      .addCase(addToCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        toast.error('Failed to update item quantity');
       })
-      // Remove Item
-      .addCase(removeFromCart.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(removeFromCart.fulfilled, (state, action) => {
-        state.loading = false;
-        
-        // Handle both direct cart object and wrapped response formats
-        const cartData = action.payload?.data || action.payload;
-        
-        if (cartData) {
-          // Update items array
-          state.items = cartData.data?.items || [];
-          
-          // Update total price
-          state.total = cartData.data?.totalPrice || cartData.data?.total || calculateTotal(cartData.data?.items || [], state.deliveryFee);
-          
-          toast.success('Item removed from cart');
-        } else {
-          state.error = 'Failed to update cart state';
-          toast.error(state.error);
-        }
-      })
-      .addCase(removeFromCart.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || 'Failed to remove item from cart';
-        toast.error(state.error);
-      })
+      
       // Clear Cart
       .addCase(clearCart.pending, (state) => {
         state.loading = true;
@@ -219,57 +126,47 @@ const cartSlice = createSlice({
         state.items = [];
         state.total = 0;
         state.deliveryFee = 0;
-        state.isDeliveryZoneValid = false;
-        state.selectedTimeSlot = null;
-        toast.success('Cart cleared successfully');
       })
       .addCase(clearCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        toast.error('Failed to clear cart');
       })
-      // Check delivery availability
-      .addCase(checkDeliveryAvailability.pending, (state) => {
+      
+      // Update Cart Item
+      .addCase(updateCartItem.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(checkDeliveryAvailability.fulfilled, (state, action) => {
+      .addCase(updateCartItem.fulfilled, (state, action) => {
         state.loading = false;
         if (action.payload.success) {
-          state.deliveryZone = action.payload.data.zone;
-          state.deliveryFee = action.payload.data.deliveryFee;
-          state.isDeliveryZoneValid = true;
-        } else {
-          state.deliveryZone = null;
-          state.deliveryFee = 0;
-          state.isDeliveryZoneValid = false;
+          state.items = action.payload.data.items || [];
+          state.total = action.payload.data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         }
       })
-      .addCase(checkDeliveryAvailability.rejected, (state, action) => {
+      .addCase(updateCartItem.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
-        state.deliveryZone = null;
-        state.deliveryFee = 0;
-        state.isDeliveryZoneValid = false;
+        state.error = action.payload;
+      })
+      
+      // Remove from Cart
+      .addCase(removeFromCart.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(removeFromCart.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload.success) {
+          state.items = action.payload.data.items || [];
+          state.total = action.payload.data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
+      })
+      .addCase(removeFromCart.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   }
 });
 
-const calculateTotal = (items, deliveryFee) => {
-  const itemsTotal = items.reduce((total, item) => {
-    const itemPrice = parseFloat(item.price) || 0;
-    const itemQuantity = parseInt(item.quantity) || 1;
-    return total + (itemPrice * itemQuantity);
-  }, 0);
-  return itemsTotal + (parseFloat(deliveryFee) || 0);
-};
-
-export const {
-  setDeliveryFee,
-  setDeliveryZoneValid,
-  setTimeSlot,
-  setDeliveryZone,
-  clearError
-} = cartSlice.actions;
-
-export default cartSlice.reducer; 
+export const { resetCart } = cartSlice.actions;
+export default cartSlice.reducer;

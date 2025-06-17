@@ -15,6 +15,7 @@ import {
   fetchDeliveryZones
 } from '../store/slices/deliveryZoneSlice';
 import { useDispatch, useSelector } from 'react-redux';
+import { clearCart } from '../store/slices/cartSlice';
 const LocationMarker = ({ position, setPosition }) => {
   const map = useMapEvents({
     click(e) {
@@ -152,6 +153,7 @@ const [total, setTotal] = useState(initialTotal);
         ...prev,
         address,
         city: area,
+        area: area
       }));
 
       toast.success('Location found! You can adjust it by clicking on the map.');
@@ -211,53 +213,45 @@ const [total, setTotal] = useState(initialTotal);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Submit button clicked');
     setIsSubmitting(true);
-    setFormErrors({});
-
-    // Check minimum order price
-    if (formData.orderType === 'delivery' && closestZone && total < closestZone.minimumOrderPrice) {
-      toast.error(`Minimum order amount for this zone is €${closestZone.minimumOrderPrice.toFixed(2)}`);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Log form data for debugging
-    console.log('Form Data:', formData);
-    console.log('Order Type:', formData.orderType);
-    console.log('Cart Items:', cartItems);
-    console.log('Subtotal:', subtotal);
-    console.log('Total:', total);
-
-    // Validate form
-    const errors = validateOrderForm(formData, formData.orderType);
-    console.log('Validation Errors:', errors);
-    
-    if (Object.keys(errors).length > 0) {
-      console.log('Form validation failed');
-      setFormErrors(errors);
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
-      console.log('Preparing order data...');
-      // Calculate final price
-      const finalPrice = formData.orderType === 'delivery' ? subtotal + deliveryFee : subtotal;
-      console.log('Final Price:', finalPrice);
+      // Validate form
+      const errors = validateOrderForm(formData);
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        return;
+      }
 
       // Prepare order data
+      const getPureProductId = (item) => {
+        if (item.product && item.product._id) return item.product._id;
+        const id = item.productId || item.id;
+        if (!id) return undefined;
+        const pureId = id.split('-')[0];
+        return /^[a-f\d]{24}$/i.test(pureId) ? pureId : undefined;
+      };
+      console.log('cartItems:', cartItems);
       const orderData = {
-        items: cartItems.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-          price: item.price,
-          customization: {
-            size: item.size,
-            toppings: item.toppings,
-            specialInstructions: item.specialInstructions
-          }
-        })),
+        items: cartItems
+          .map(item => {
+            // const productId = getPureProductId(item);
+            // if (!productId) return null;
+            return {
+              product: item.product._id,
+              name: item.name,
+              price: parseFloat(item.price),
+              quantity: parseInt(item.quantity),
+              customization: {
+                size: item.size,
+                crust: item.crust,
+                toppings: item.toppings || [],
+                extraItems: item.extraItems || [],
+                specialInstructions: item.specialInstructions || ''
+              }
+            };
+          })
+          .filter(Boolean),
         customerInfo: {
           name: formData.name,
           email: formData.email,
@@ -265,45 +259,36 @@ const [total, setTotal] = useState(initialTotal);
         },
         orderType: formData.orderType,
         paymentMethod: formData.paymentMethod,
-        finalPrice: finalPrice,
-        total: {
-          subtotal: subtotal,
-          deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
-          total: finalPrice
-        },
-        tax: formData.tax || 0,
-        discount: formData.discount || 0,
-        notes: formData.notes || ''
+        subtotal: parseFloat(subtotal),
+        total: parseFloat(total),
+        totalPrice: parseFloat(subtotal),
+        finalPrice: parseFloat(total),
+        status: 'pending',
+        paymentStatus: 'pending'
       };
+      console.log('orderData.items:', orderData.items);
 
-      // Add delivery specific data if order type is delivery
+      // Add delivery information if delivery is selected
       if (formData.orderType === 'delivery') {
-        if (!formData.address || !formData.city) {
-          throw new Error('Delivery address and area are required for delivery orders');
+        if (!closestZone) {
+          toast.error('Please select a valid delivery location');
+          return;
         }
-
-        // Extract area from the full address
-        const addressParts = formData.address.split(',');
-        const area = addressParts.find(part => 
-          part.trim().toLowerCase().includes('colony') || 
-          part.trim().toLowerCase().includes('area') ||
-          part.trim().toLowerCase().includes('sector')
-        )?.trim() || formData.city;
 
         orderData.deliveryAddress = {
           address: formData.address,
-          area: area,
+          area: formData.area,
           coordinates: {
-            latitude: position[0],
-            longitude: position[1]
+            latitude: position.lat,
+            longitude: position.lng
           }
         };
-        orderData.deliveryCharge = deliveryFee;
-        orderData.deliveryZone = closestZone._id; // Send only the ObjectId
+        orderData.deliveryZone = closestZone._id;
+        orderData.deliveryCharge = parseFloat(deliveryFee);
         orderData.estimatedDeliveryTime = new Date(Date.now() + 45 * 60000);
       }
 
-      console.log('Sending order data:', JSON.stringify(orderData, null, 2));
+      console.log('Order Data:', orderData);
 
       // Create the order
       const response = await orderService.createOrder(orderData);
@@ -311,6 +296,8 @@ const [total, setTotal] = useState(initialTotal);
       
       if (response.success) {
         toast.success('Order placed successfully!');
+        // Clear the cart after successful order
+        dispatch(clearCart());
         navigate('/orders');
       } else {
         throw new Error(response.message || 'Failed to place order');
@@ -318,16 +305,12 @@ const [total, setTotal] = useState(initialTotal);
     } catch (error) {
       console.error('Error creating order:', error);
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         console.error('Error response:', error.response.data);
         toast.error(error.response.data.message || 'Failed to place order. Please try again.');
       } else if (error.request) {
-        // The request was made but no response was received
         console.error('No response received:', error.request);
         toast.error('Unable to connect to the server. Please check if the server is running.');
       } else {
-        // Something happened in setting up the request that triggered an Error
         console.error('Error message:', error.message);
         toast.error(error.message || 'Failed to place order. Please try again.');
       }
@@ -515,6 +498,7 @@ const [total, setTotal] = useState(initialTotal);
                 readOnly
                 placeholder="Address will appear here when you select a location on the map"
               />
+              {formErrors.address && <p className="text-red-500 text-xs sm:text-sm mt-1">{formErrors.address}</p>}
             </div>
 
             <div>
@@ -528,6 +512,7 @@ const [total, setTotal] = useState(initialTotal);
                     className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="Area will be filled automatically"
               />
+              {formErrors.area && <p className="text-red-500 text-xs sm:text-sm mt-1">{formErrors.area}</p>}
             </div>
           </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { FaTrash, FaMinus, FaPlus } from 'react-icons/fa';
@@ -14,97 +14,68 @@ const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { items, total, deliveryFee, loading, error } = useSelector((state) => state.cart);
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
 
   useEffect(() => {
-    loadCart();
+    dispatch(fetchCart());
   }, [dispatch]);
-
-  const loadCart = async () => {
-    try {
-      await dispatch(fetchCart()).unwrap();
-    } catch (error) {
-      console.error('Error loading cart:', error);
-      toast.error('Failed to load cart. Please try again.');
-    }
-  };
 
   const handleQuantityUpdate = async (itemId, newQuantity) => {
     try {
-      if (newQuantity < 1) {
-        return;
-      }
+      if (newQuantity < 1) return;
       await dispatch(updateCartItem({ itemId, quantity: newQuantity })).unwrap();
       toast.success('Cart updated successfully');
     } catch (error) {
       console.error('Error updating quantity:', error);
       toast.error('Failed to update quantity. Please try again.');
-      loadCart();
+      dispatch(fetchCart());
     }
   };
 
-  const handlePlaceOrder = async () => {
-    try {
-      if (!items || items.length === 0) {
-        toast.error('Your cart is empty.');
-        return;
-      }
-
-      // Calculate total
-      const cartTotal = items.reduce((total, item) => {
-        return total + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1);
-      }, 0);
-
-      if (isNaN(cartTotal) || cartTotal <= 0) {
-        toast.error('Invalid cart total. Please try again.');
-        return;
-      }
-
-      // Navigate to checkout page with cart data
-      navigate('/checkout', {
-        state: {
-          cartItems: items.map(item => ({
-            id: item._id || item.id,
-            name: item.name || item.product?.name,
-            price: parseFloat(item.price) || 0,
-            quantity: parseInt(item.quantity) || 1,
-            size: item.size,
-            toppings: item.toppings,
-            specialInstructions: item.specialInstructions
-          })),
-          total: cartTotal,
-          deliveryFee: deliveryFee || 0,
-          subtotal: cartTotal,
-          itemCount: items.length
-        }
-      });
-    } catch (error) {
-      console.error('Error proceeding to checkout:', error);
-      toast.error('Failed to proceed to checkout. Please try again.');
+  const handlePlaceOrder = () => {
+    if (items.length === 0) {
+      toast.error('Your cart is empty');
+      return;
     }
+    navigate('/checkout', {
+      state: {
+        cartItems: items,
+        subtotal: total,
+        total: total
+
+      }
+    });
+    console.log(items)
   };
 
   const handleRemoveItem = async (itemId) => {
     try {
-      await dispatch(removeFromCart(itemId)).unwrap();
-      toast.success('Item removed from cart');
+      const result = await dispatch(removeFromCart(itemId)).unwrap();
+      if (result.success) {
+        toast.success('Item removed from cart');
+      } else {
+        throw new Error(result.message || 'Failed to remove item');
+      }
     } catch (error) {
       console.error('Error removing item:', error);
-      toast.error('Failed to remove item. Please try again.');
-      loadCart();
+      toast.error(error.message || 'Failed to remove item. Please try again.');
+      dispatch(fetchCart());
     }
   };
 
   const handleClearCart = async () => {
     try {
+      setShowClearConfirmation(false);
       await dispatch(clearCart()).unwrap();
       toast.success('Cart cleared successfully');
     } catch (error) {
       console.error('Error clearing cart:', error);
       toast.error('Failed to clear cart');
+      dispatch(fetchCart());
     }
   };
 
-  if (loading) {
+  if (loading && !items.length) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4">
@@ -124,7 +95,7 @@ const Cart = () => {
             <h1 className="text-3xl font-bold text-red-600 mb-4">Error Loading Cart</h1>
             <p className="text-gray-600 mb-8">{error}</p>
             <button
-              onClick={loadCart}
+              onClick={() => dispatch(fetchCart())}
               className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
             >
               Retry
@@ -160,7 +131,7 @@ const Cart = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Your Cart</h1>
           <button
-            onClick={handleClearCart}
+            onClick={() => setShowClearConfirmation(true)}
             className="text-red-600 hover:text-red-700 flex items-center gap-2"
             disabled={loading}
           >
@@ -169,6 +140,31 @@ const Cart = () => {
           </button>
         </div>
         
+        {/* Clear Cart Confirmation Modal */}
+        {showClearConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-sm w-full">
+              <h3 className="text-lg font-bold mb-4">Clear Cart?</h3>
+              <p>Are you sure you want to remove all items from your cart?</p>
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  className="px-4 py-2 border border-gray-300 rounded"
+                  onClick={() => setShowClearConfirmation(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 bg-red-600 text-white rounded"
+                  onClick={handleClearCart}
+                  disabled={loading}
+                >
+                  {loading ? 'Clearing...' : 'Clear Cart'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
@@ -177,7 +173,7 @@ const Cart = () => {
                 const itemName = item.name || item.product?.name || 'Product';
                 const itemPrice = parseFloat(item.price) || 0;
                 const itemQuantity = parseInt(item.quantity) || 1;
-                const itemId = item._id || item.id;
+                const itemId = item.id;
 
                 return (
                   <div
@@ -206,7 +202,7 @@ const Cart = () => {
                           </p>
                         )}
                         <p className="text-red-600 font-semibold mt-2">
-                          €{itemPrice.toFixed(2)}
+                          €{(itemPrice * itemQuantity).toFixed(2)}
                         </p>
                       </div>
                       

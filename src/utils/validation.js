@@ -9,7 +9,7 @@ export const validateOrderForm = (formData, orderType) => {
   // Additional validation for delivery orders
   if (orderType === 'delivery') {
     if (!formData.address?.trim()) errors.address = 'Address is required';
-    if (!formData.city?.trim()) errors.city = 'Area is required';
+    if (!formData.area?.trim()) errors.area = 'Area is required';
     // Removed zipCode requirement as it's not used in the backend
   }
 
